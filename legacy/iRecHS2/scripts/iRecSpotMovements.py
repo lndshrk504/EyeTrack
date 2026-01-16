@@ -19,7 +19,8 @@ import irechs2 as irec
 ####Edit here###
 M_Name='testMonitor'
 M_Index=0
-Server='localhost'
+# Server='localhost'
+Server='192.168.1.50'
 ####Edit here####
 
 sp=SS.Spot(M_Name,ScreenIndex=M_Index,img=Image.open('IMG_1883.jpg'),mask='raisedCos',bg_brightness=0.5,bg_monochrome=True,bg_bokeh=16)

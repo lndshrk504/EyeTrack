@@ -2,7 +2,7 @@
 % Run on same machine: Server = 'localhost'
 % Run on different machine: Server = 'xxx.xxx.xxx.xxx' (iRecHS2 IP)
 
-Server = 'localhost';
+Server = '192.168.1.50';
 magnify = 5;
 circle_radius = 10;
 

@@ -4,7 +4,8 @@
  Psychopy 1.9 & iRecHS2 sample program
  
  Run Psychopy & iRecHS2 on the same computer 
-    -> Server='localhost'
+    # -> Server='localhost'
+    -> Server='192.168.1.50'
  Run Psychopy & iRecHS2 on different computer
     -> Server='xxx.xxx.xxx.xxx' # iRecHS2 computer IP address
     
@@ -20,7 +21,8 @@ import irechs2 as irec
 
 
 ###EDIT HERE ###
-Server='localhost' # IP address of iRecHS2 computer
+# Server='localhost' # IP address of iRecHS2 computer
+Server='192.168.1.50' # IP address of iRecHS2 computer
 magnify=5
 circle_radius=10
 ###EDIT HERE ###

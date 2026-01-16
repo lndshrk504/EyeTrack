@@ -1,4 +1,4 @@
-classdef iRecHS2 < handle
+classdef irechs2 < handle
     % iRecHS2 TCP client for the iRecHS2 eye tracker
 
     properties (Access = private)
@@ -10,9 +10,9 @@ classdef iRecHS2 < handle
     end
 
     methods
-        function obj = iRecHS2(host, port)
+        function obj = irechs2(host, port)
             if nargin < 1 || isempty(host)
-                host = "localhost";
+                host = "192.168.1.50";
             end
             if nargin < 2 || isempty(port)
                 port = 35358;
