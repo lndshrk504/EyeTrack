@@ -34,7 +34,8 @@ class iRecHS2(object):
                 self.__client_socket.close()
                 self.__state='disconnect'
 
-    def __init__(self,host='localhost',port=35358):
+    # def __init__(self,host='localhost',port=35358):
+    def __init__(self,host='192.168.1.50',port=35358):
         self.HOST=host
         self.PORT=port
         self.__remainStr=''
@@ -101,7 +102,8 @@ class iRecHS2(object):
 
 if __name__ == '__main__':
 
-    eye=iRecHS2('127.0.0.1') 
+    # eye=iRecHS2('127.0.0.1') 
+    eye=iRecHS2('192.168.1.50') 
     if eye.state()=='connect':
         print('---start---')
         eye.start()
