@@ -1,4 +1,4 @@
-# Active EyeTrack Tree
+# Active DeepLabCut Tree
 
 This directory contains the active eye-tracking code extracted from the old `BehaviorBox/DLC/` tree.
 

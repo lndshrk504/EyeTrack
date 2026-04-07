@@ -9,22 +9,27 @@ import PySpin
 
 def default_model_path():
     repo_root = Path(__file__).resolve().parents[2]
-    active_root = repo_root / "models" / "active"
-    if not active_root.is_dir():
-        raise FileNotFoundError(
-            f"Missing model directory: {active_root}. "
-            "Copy an exported model under models/active/<model-name> or pass --model-path."
-        )
+    model_roots = [
+        repo_root / "models" / "active",
+        repo_root / "models",
+    ]
 
-    child_dirs = sorted(path for path in active_root.iterdir() if path.is_dir())
-    if len(child_dirs) == 1:
-        return child_dirs[0]
-    if not child_dirs:
-        return active_root
+    for model_root in model_roots:
+        if not model_root.is_dir():
+            continue
+
+        child_dirs = sorted(path for path in model_root.iterdir() if path.is_dir())
+        if len(child_dirs) == 1:
+            return child_dirs[0]
+        if child_dirs:
+            raise FileNotFoundError(
+                f"Found multiple candidate models under {model_root}. "
+                "Pass --model-path to choose one."
+            )
 
     raise FileNotFoundError(
-        f"Found multiple candidate models under {active_root}. "
-        "Pass --model-path to choose one."
+        "Missing exported model. Copy a single model under models/<model-name> "
+        "or models/active/<model-name>, or pass --model-path."
     )
 
 def parse_args():
@@ -46,7 +51,7 @@ def parse_args():
         default=None,
         help=(
             "Path to an exported DLCLive model. "
-            "Defaults to the single directory under models/active/."
+            "Defaults to the single directory under models/ or models/active/."
         ),
     )
     return parser.parse_args()

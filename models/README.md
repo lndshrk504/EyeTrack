@@ -8,19 +8,18 @@ Current recommended layout:
 
 ```text
 models/
-  active/
-    <model-name>/
-      snapshot-*.data-00000-of-00001
-      snapshot-*.index
-      snapshot-*.meta
-      snapshot-*.pb
-      snapshot-*.pbtxt
-      pose_cfg.yaml
+  <model-name>/
+    snapshot-*.data-00000-of-00001
+    snapshot-*.index
+    snapshot-*.meta
+    snapshot-*.pb
+    snapshot-*.pbtxt
+    pose_cfg.yaml
 ```
 
 Notes:
 
 - Keep only active model artifacts here.
-- Legacy binary placement is documented in the top-level `README.md`, not here.
+- For compatibility, `models/active/<model-name>/` also works if you prefer that extra nesting.
 - `models/` contents other than this file are ignored by git in this local repo.
-- The test scripts under `EyeTrack/Tests/` look here by default and will use the single directory under `models/active/`, or you can pass `--model-path`.
+- The test scripts under `DeepLabCut/Tests/` look here by default and will use the single directory under `models/`, or `models/active/` if that folder exists. You can also pass `--model-path`.

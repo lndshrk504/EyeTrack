@@ -7,6 +7,5 @@ It contains:
 - legacy MATLAB client code
 - legacy Python client/support scripts
 - legacy test files
-- legacy documentation and non-binary assets
-
-Separated binaries are stored outside this tree under `../../binaries/iRecHS2/`.
+- legacy documentation and assets
+- the current legacy Windows executable `iRecHS2.exe`

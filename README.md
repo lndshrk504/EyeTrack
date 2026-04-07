@@ -4,25 +4,21 @@ Standalone eye-tracking repo extracted from `BehaviorBox`.
 
 This repo is split into four areas:
 
-- `EyeTrack/`
+- `DeepLabCut/`
   Active eye-tracking code. This is the renamed successor of the old `DLC/` tree from `BehaviorBox`.
 - `legacy/iRecHS2/`
-  Restored legacy eye-tracking code, tests, docs, and non-binary assets.
-- `binaries/iRecHS2/`
-  Separated legacy binary artifacts. The legacy Windows executable lives here.
+  Restored legacy eye-tracking code, tests, docs, and assets, including the current legacy Windows executable.
 - `models/`
   Landing zone for manually copied active runtime model artifacts. Model blobs are intentionally not tracked in git.
 
 ## Current layout
 
 ```text
-EyeTrack/
+DeepLabCut/
   ToMatlab/
   Tests/
   environment.yaml
 legacy/
-  iRecHS2/
-binaries/
   iRecHS2/
 models/
   README.md
@@ -42,7 +38,7 @@ disp(paths);
 
 `bootstrap_eye_track.m` adds only explicit MATLAB paths:
 
-- `EyeTrack/ToMatlab`
+- `DeepLabCut/ToMatlab`
 - `legacy/iRecHS2/scripts`
 - `legacy/iRecHS2/iRecTests`
 
@@ -53,11 +49,11 @@ It does not call `addpath(genpath(...))`.
 The active interop boundary is unchanged from the BehaviorBox copy:
 
 - Producer side: Python
-  `EyeTrack/ToMatlab/dlc_eye_streamer.py`
+  `DeepLabCut/ToMatlab/dlc_eye_streamer.py`
 - MATLAB bridge helper: Python
-  `EyeTrack/ToMatlab/matlab_zmq_bridge.py`
+  `DeepLabCut/ToMatlab/matlab_zmq_bridge.py`
 - Consumer side: MATLAB
-  `EyeTrack/ToMatlab/receive_eye_stream_demo.m`
+  `DeepLabCut/ToMatlab/receive_eye_stream_demo.m`
 
 Transport:
 
@@ -83,15 +79,9 @@ Active runtime models should be copied into `models/` as needed.
 - They are intentionally excluded from git history here.
 - See [models/README.md](models/README.md) for the expected active-model placement.
 
-## Legacy assets and binaries
+## Legacy assets
 
-Legacy source, tests, docs, and non-binary assets live under `legacy/iRecHS2/`.
-
-Separated legacy binaries live under `binaries/iRecHS2/`.
-
-That currently includes:
-
-- `binaries/iRecHS2/iRecHS2.exe`
+Legacy source, tests, docs, and the current legacy Windows executable live under `legacy/iRecHS2/`.
 
 ## Notes
 

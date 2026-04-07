@@ -4,4 +4,9 @@ This folder contains focused Python-side smoke and environment checks for the ac
 
 These are not a full automated test suite. They are targeted scripts for dependency, camera, and inference-path checks.
 
-The DLCLive smoke scripts expect an exported model under `../../models/active/<model-name>/` by default, or an explicit `--model-path`.
+The DLCLive smoke scripts resolve the default model path in this order:
+
+- `../../models/active/<model-name>/`
+- `../../models/<model-name>/`
+
+You can also pass an explicit `--model-path`.
