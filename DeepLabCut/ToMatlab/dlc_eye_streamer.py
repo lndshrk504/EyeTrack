@@ -20,6 +20,8 @@ frame. For a small Mono8 eye ROI, that copy is usually not the bottleneck.
 
 import argparse
 import csv
+import gc
+import json
 import math
 import queue
 import signal
@@ -159,6 +161,13 @@ def set_bool_node(node_map: Any, name: str, value: bool) -> bool:
     return True
 
 
+def set_first_bool_node(node_map: Any, names: tuple[str, ...], value: bool) -> Optional[str]:
+    for name in names:
+        if set_bool_node(node_map, name, value):
+            return name
+    return None
+
+
 def set_float_node(node_map: Any, name: str, value: float) -> Optional[float]:
     node = PySpin.CFloatPtr(node_map.GetNode(name))
     if not PySpin.IsAvailable(node) or not PySpin.IsWritable(node):
@@ -167,6 +176,13 @@ def set_float_node(node_map: Any, name: str, value: float) -> Optional[float]:
     hi = node.GetMax()
     actual = min(max(float(value), lo), hi)
     node.SetValue(actual)
+    return float(node.GetValue())
+
+
+def get_float_node(node_map: Any, name: str) -> Optional[float]:
+    node = PySpin.CFloatPtr(node_map.GetNode(name))
+    if not PySpin.IsAvailable(node) or not PySpin.IsReadable(node):
+        return None
     return float(node.GetValue())
 
 
@@ -202,6 +218,34 @@ def configure_sensor_roi(node_map: Any, x: int, y: int, width: int, height: int)
     return actual_x, actual_y, actual_w, actual_h
 
 
+def configure_frame_rate(node_map: Any, frame_rate: Optional[float]) -> dict[str, Any]:
+    if frame_rate is None:
+        return {}
+
+    info: dict[str, Any] = {}
+    if set_enum_node(node_map, "AcquisitionFrameRateAuto", "Off"):
+        info["frame_rate_auto"] = "Off"
+
+    enable_node = set_first_bool_node(
+        node_map,
+        ("AcquisitionFrameRateEnable", "AcquisitionFrameRateEnabled"),
+        True,
+    )
+    if enable_node is not None:
+        info["frame_rate_enable_node"] = enable_node
+
+    actual = set_float_node(node_map, "AcquisitionFrameRate", frame_rate)
+    if actual is None:
+        info["frame_rate_requested"] = float(frame_rate)
+        info["frame_rate"] = get_float_node(node_map, "AcquisitionFrameRate")
+        info["frame_rate_warning"] = (
+            "Could not set AcquisitionFrameRate; continuing with the camera's current frame rate."
+        )
+        return info
+    info["frame_rate"] = actual
+    return info
+
+
 def configure_camera(cam: Any, args: argparse.Namespace) -> dict[str, Any]:
     cam.Init()
     node_map = cam.GetNodeMap()
@@ -215,7 +259,6 @@ def configure_camera(cam: Any, args: argparse.Namespace) -> dict[str, Any]:
 
     set_enum_node(node_map, "AcquisitionMode", "Continuous")
     set_enum_node(node_map, "ExposureAuto", "Off")
-    set_enum_node(node_map, "GainAuto", "Off")
 
     if args.sensor_roi is not None:
         x, y, w, h = args.sensor_roi
@@ -225,15 +268,17 @@ def configure_camera(cam: Any, args: argparse.Namespace) -> dict[str, Any]:
     if args.pixel_format:
         set_enum_node(node_map, "PixelFormat", args.pixel_format)
 
+    info.update(configure_frame_rate(node_map, args.frame_rate))
+
     if args.exposure_us is not None:
         info["exposure_us"] = set_float_node(node_map, "ExposureTime", args.exposure_us)
 
-    if args.gain_db is not None:
-        info["gain_db"] = set_float_node(node_map, "Gain", args.gain_db)
+    gain_auto_entry = gain_auto_entry_name(args.gain_auto)
+    if set_enum_node(node_map, "GainAuto", gain_auto_entry):
+        info["gain_auto"] = gain_auto_entry
 
-    if args.frame_rate is not None:
-        if set_bool_node(node_map, "AcquisitionFrameRateEnable", True):
-            info["frame_rate"] = set_float_node(node_map, "AcquisitionFrameRate", args.frame_rate)
+    if args.gain_auto == "off" and args.gain_db is not None:
+        info["gain_db"] = set_float_node(node_map, "Gain", args.gain_db)
 
     # Keep the transport queue shallow; for closed-loop work, newest frame wins.
     set_enum_node(stream_node_map, "StreamBufferCountMode", "Manual")
@@ -241,6 +286,14 @@ def configure_camera(cam: Any, args: argparse.Namespace) -> dict[str, Any]:
     set_enum_node(stream_node_map, "StreamBufferHandlingMode", "NewestOnly")
 
     return info
+
+
+def gain_auto_entry_name(value: str) -> str:
+    return {
+        "off": "Off",
+        "once": "Once",
+        "continuous": "Continuous",
+    }[value]
 
 
 def normalize_pose(pose: np.ndarray) -> np.ndarray:
@@ -382,11 +435,33 @@ def sensor_roi_metadata(camera_info: dict[str, Any]) -> dict[str, Optional[int]]
     }
 
 
+def csv_path_for_args(args: argparse.Namespace) -> Optional[Path]:
+    if args.csv is None:
+        return None
+    return Path(args.csv).expanduser()
+
+
+def metadata_path_for_csv(csv_path: Path) -> Path:
+    return csv_path.with_name(f"{csv_path.stem}_metadata.json")
+
+
+def metadata_path_for_args(args: argparse.Namespace) -> Optional[Path]:
+    csv_path = csv_path_for_args(args)
+    if csv_path is None:
+        return None
+    return metadata_path_for_csv(csv_path)
+
+
 def sample_metadata(args: argparse.Namespace, point_names: list[str]) -> dict[str, Any]:
     camera_info = getattr(args, "camera_info", {}) or {}
+    csv_path = csv_path_for_args(args)
+    metadata_path = metadata_path_for_args(args)
     return {
         "schema_version": SCHEMA_VERSION,
         "source": SOURCE_NAME,
+        "address": args.address,
+        "csv_path": None if csv_path is None else str(csv_path),
+        "metadata_path": None if metadata_path is None else str(metadata_path),
         "model_preset": args.model_preset,
         "model_type": args.model_type,
         "point_names": list(point_names),
@@ -401,47 +476,67 @@ def sample_metadata(args: argparse.Namespace, point_names: list[str]) -> dict[st
 
 
 def make_metadata_message(args: argparse.Namespace, point_names: list[str]) -> dict[str, Any]:
-    csv_path = None if args.csv is None else str(Path(args.csv).expanduser())
     return {
         "message_type": "metadata",
         "created_time_unix_s": time.time(),
         "created_time_unix_ns": time.time_ns(),
-        "address": args.address,
-        "csv_path": csv_path,
         "display_enabled": bool(args.display),
         "display_scale": float(args.display_scale),
         "display_fps": float(args.display_fps),
         "pub_hwm": int(args.pub_hwm),
+        "metadata_interval_s": float(args.metadata_interval_s),
         "dynamic_crop": bool(args.dynamic_crop),
         "dynamic_margin": int(args.dynamic_margin),
         **sample_metadata(args, point_names),
     }
 
 
-CSV_BASE_FIELDNAMES = [
-    "message_type",
-    "schema_version",
+def make_sidecar_metadata(args: argparse.Namespace, point_names: list[str], csv_fieldnames: list[str]) -> dict[str, Any]:
+    camera_info = getattr(args, "camera_info", {}) or {}
+    metadata = make_metadata_message(args, point_names)
+    metadata.update(
+        {
+            "csv_fieldnames": list(csv_fieldnames),
+            "model_path": str(args.model_path),
+            "camera_index": int(args.camera_index),
+            "timeout_ms": int(args.timeout_ms),
+            "buffer_count": int(args.buffer_count),
+            "pixel_format": args.pixel_format,
+            "exposure_us_requested": None if args.exposure_us is None else float(args.exposure_us),
+            "gain_db_requested": None if args.gain_db is None else float(args.gain_db),
+            "gain_auto_requested": args.gain_auto,
+            "frame_rate_requested": None if args.frame_rate is None else float(args.frame_rate),
+            "camera_info": camera_info,
+            "pass_gray_to_dlc": bool(args.pass_gray_to_dlc),
+            "kp_top": args.kp_top,
+            "kp_bottom": args.kp_bottom,
+            "kp_left": args.kp_left,
+            "kp_right": args.kp_right,
+            "kp_center": args.kp_center,
+        }
+    )
+    return metadata
+
+
+def write_sidecar_metadata(args: argparse.Namespace, point_names: list[str], csv_fieldnames: list[str]) -> Optional[str]:
+    metadata_path = metadata_path_for_args(args)
+    if metadata_path is None:
+        return None
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata = make_sidecar_metadata(args, point_names, csv_fieldnames)
+    with metadata_path.open("w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2, sort_keys=True)
+        f.write("\n")
+    return str(metadata_path)
+
+
+CSV_SAMPLE_FIELDNAMES = [
     "sample_status",
-    "source",
     "frame_id",
     "capture_time_unix_s",
     "capture_time_unix_ns",
     "publish_time_unix_s",
     "publish_time_unix_ns",
-    "model_preset",
-    "model_type",
-    "point_count",
-    "camera_serial",
-    "camera_model",
-    "sensor_roi_x",
-    "sensor_roi_y",
-    "sensor_roi_width",
-    "sensor_roi_height",
-    "crop_x1",
-    "crop_x2",
-    "crop_y1",
-    "crop_y2",
-    "pose_coordinate_frame",
     "center_x",
     "center_y",
     "diameter_px",
@@ -468,7 +563,7 @@ def csv_point_prefixes(point_names: list[str], n_points: int) -> list[str]:
 
 def make_csv_fieldnames(pose: np.ndarray, point_names: list[str]) -> list[str]:
     pose = normalize_pose(pose)
-    fieldnames = list(CSV_BASE_FIELDNAMES)
+    fieldnames = list(CSV_SAMPLE_FIELDNAMES)
     for name in csv_point_prefixes(point_names, pose.shape[0]):
         fieldnames.extend([f"{name}_x", f"{name}_y", f"{name}_likelihood"])
     return fieldnames
@@ -476,7 +571,7 @@ def make_csv_fieldnames(pose: np.ndarray, point_names: list[str]) -> list[str]:
 
 def make_csv_row(payload: dict[str, Any], pose: np.ndarray, point_names: list[str]) -> dict[str, Any]:
     pose = normalize_pose(pose)
-    row = {name: payload.get(name) for name in CSV_BASE_FIELDNAMES}
+    row = {name: payload.get(name) for name in CSV_SAMPLE_FIELDNAMES}
     for name, point in zip(csv_point_prefixes(point_names, pose.shape[0]), pose):
         row[f"{name}_x"] = safe_float(point[0])
         row[f"{name}_y"] = safe_float(point[1])
@@ -642,11 +737,11 @@ def inference_loop(
         eprint("[inf] DLCLive initialized")
 
         point_names = list(args.point_names)
-        static_sample_metadata = sample_metadata(args, point_names)
         pub.send_json(make_metadata_message(args, point_names))
 
         inference_rate = RateMeter(window=50)
         last_display_t = 0.0
+        last_metadata_t = time.perf_counter()
         current_pkt = first_pkt
 
         while not stop_event.is_set():
@@ -671,8 +766,6 @@ def inference_loop(
 
             payload: dict[str, Any] = {
                 "message_type": "sample",
-                "schema_version": SCHEMA_VERSION,
-                **static_sample_metadata,
                 "frame_id": int(current_pkt.frame_id),
                 "capture_time_unix_s": float(current_pkt.capture_time_unix_s),
                 "capture_time_unix_ns": int(current_pkt.capture_time_unix_ns),
@@ -688,19 +781,30 @@ def inference_loop(
             payload["points"] = make_points_dict(pose, point_names)
 
             if args.csv is not None and csv_writer is None:
-                csv_path = Path(args.csv)
+                csv_path = csv_path_for_args(args)
+                if csv_path is None:
+                    raise RuntimeError("CSV path is required.")
                 csv_path.parent.mkdir(parents=True, exist_ok=True)
                 csv_file = csv_path.open("w", newline="")
-                csv_writer = csv.DictWriter(csv_file, fieldnames=make_csv_fieldnames(pose, point_names))
+                csv_fieldnames = make_csv_fieldnames(pose, point_names)
+                metadata_path = write_sidecar_metadata(args, point_names, csv_fieldnames)
+                if metadata_path is not None:
+                    eprint(f"[inf] metadata sidecar={metadata_path}")
+                csv_writer = csv.DictWriter(csv_file, fieldnames=csv_fieldnames)
                 csv_writer.writeheader()
 
             pub.send_json(payload)
+
+            metadata_interval = max(float(args.metadata_interval_s), 0.0)
+            now = time.perf_counter()
+            if metadata_interval > 0 and (now - last_metadata_t) >= metadata_interval:
+                pub.send_json(make_metadata_message(args, point_names))
+                last_metadata_t = now
 
             if csv_writer is not None:
                 csv_writer.writerow(make_csv_row(payload, pose, point_names))
                 csv_file.flush()
 
-            now = time.perf_counter()
             if args.display and (now - last_display_t) >= (1.0 / max(args.display_fps, 1e-6)):
                 last_display_t = now
                 drop_put(
@@ -824,6 +928,12 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--address", default="tcp://127.0.0.1:5555", help="ZeroMQ PUB endpoint")
     p.add_argument("--pub-hwm", type=int, default=10000, help="ZeroMQ PUB high-water mark")
+    p.add_argument(
+        "--metadata-interval-s",
+        type=float,
+        default=1.0,
+        help="Seconds between repeated metadata messages. Samples do not repeat static metadata.",
+    )
     p.add_argument("--camera-index", type=int, default=0, help="PySpin camera index")
     p.add_argument("--timeout-ms", type=int, default=1000, help="PySpin GetNextImage timeout")
     p.add_argument("--buffer-count", type=int, default=3, help="Stream buffer count on host")
@@ -861,6 +971,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--dynamic-margin", type=int, default=20, help="Dynamic crop margin in pixels")
     p.add_argument("--pass-gray-to-dlc", action="store_true", help="Pass 2D grayscale frames directly into DLCLive")
     p.add_argument("--pcutoff", type=float, default=0.5, help="Likelihood threshold for valid keypoints")
+    p.add_argument(
+        "--gain-auto",
+        choices=["off", "once", "continuous"],
+        default="off",
+        help="Camera GainAuto mode. Use continuous to let the camera adjust brightness.",
+    )
 
     p.add_argument("--kp-top", type=int, default=None, help="Index of top pupil keypoint")
     p.add_argument("--kp-bottom", type=int, default=None, help="Index of bottom pupil keypoint")
@@ -918,10 +1034,20 @@ def main() -> int:
             eprint(f"[main] sensor ROI applied={info['sensor_roi_applied']}")
         if "frame_rate" in info and info["frame_rate"] is not None:
             eprint(f"[main] frame_rate={info['frame_rate']}")
+        if "frame_rate_requested" in info and info["frame_rate_requested"] is not None:
+            eprint(f"[main] frame_rate_requested={info['frame_rate_requested']}")
+        if "frame_rate_warning" in info and info["frame_rate_warning"]:
+            eprint(f"[main] WARNING: {info['frame_rate_warning']}")
+        if "frame_rate_auto" in info and info["frame_rate_auto"] is not None:
+            eprint(f"[main] frame_rate_auto={info['frame_rate_auto']}")
+        if "frame_rate_enable_node" in info and info["frame_rate_enable_node"] is not None:
+            eprint(f"[main] frame_rate_enable_node={info['frame_rate_enable_node']}")
         if "exposure_us" in info and info["exposure_us"] is not None:
             eprint(f"[main] exposure_us={info['exposure_us']}")
         if "gain_db" in info and info["gain_db"] is not None:
             eprint(f"[main] gain_db={info['gain_db']}")
+        if "gain_auto" in info and info["gain_auto"] is not None:
+            eprint(f"[main] gain_auto={info['gain_auto']}")
 
         frame_queue: "queue.Queue[FramePacket]" = queue.Queue(maxsize=2)
         display_queue: "queue.Queue[DisplayPacket]" = queue.Queue(maxsize=2)
@@ -954,11 +1080,13 @@ def main() -> int:
         inf_thread.join(timeout=2.0)
         return 0
     finally:
+        stop_event.set()
         try:
             cam.DeInit()
         except Exception:
             pass
         del cam
+        gc.collect()
         cam_list.Clear()
         system.ReleaseInstance()
 
