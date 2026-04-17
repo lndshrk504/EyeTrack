@@ -62,6 +62,32 @@ class DisplayPacket:
     metrics: dict[str, Any]
 
 
+SCHEMA_VERSION = 1
+SOURCE_NAME = "dlc_eye_streamer"
+
+
+MODEL_PRESETS: dict[str, dict[str, Any]] = {
+    "yanglab-pupil8": {
+        "description": "Bundled 8-point YangLab pupil model",
+        "kp_top": 2,
+        "kp_bottom": 6,
+        "kp_left": 0,
+        "kp_right": 4,
+        "kp_center": None,
+        "point_names": [
+            "Lpupil",
+            "LDpupil",
+            "Dpupil",
+            "DRpupil",
+            "Rpupil",
+            "RVpupil",
+            "Vpupil",
+            "VLpupil",
+        ],
+    },
+}
+
+
 class RateMeter:
     def __init__(self, window: int = 50) -> None:
         self._times: deque[float] = deque(maxlen=window)
@@ -243,7 +269,8 @@ def point_is_valid(pose: np.ndarray, idx: Optional[int], pcutoff: float) -> bool
         return False
     if idx < 0 or idx >= pose.shape[0]:
         return False
-    return float(pose[idx, 2]) >= pcutoff
+    x, y, p = pose[idx, :3]
+    return bool(np.isfinite(x) and np.isfinite(y) and np.isfinite(p) and float(p) >= pcutoff)
 
 
 def pair_distance(pose: np.ndarray, a: Optional[int], b: Optional[int], pcutoff: float) -> Optional[float]:
@@ -307,6 +334,156 @@ def make_points_dict(pose: np.ndarray, point_names: list[str]) -> dict[str, list
     return out
 
 
+def pose_to_acquired_frame(pose: np.ndarray, args: argparse.Namespace) -> np.ndarray:
+    pose = normalize_pose(pose).copy()
+    if args.pose_coordinate_frame == "crop" and args.crop is not None:
+        crop_x1, _crop_x2, crop_y1, _crop_y2 = args.crop
+        pose[:, 0] += float(crop_x1)
+        pose[:, 1] += float(crop_y1)
+    return pose
+
+
+def sample_status(metrics: dict[str, Any], expected_point_count: int) -> str:
+    valid_points = int(metrics.get("valid_points") or 0)
+    if expected_point_count > 0 and valid_points >= expected_point_count:
+        return "ok"
+    if valid_points > 0:
+        return "partial_points"
+    return "no_points"
+
+
+def crop_metadata(args: argparse.Namespace) -> dict[str, Optional[int]]:
+    if args.crop is None:
+        return {"crop_x1": None, "crop_x2": None, "crop_y1": None, "crop_y2": None}
+    crop_x1, crop_x2, crop_y1, crop_y2 = args.crop
+    return {
+        "crop_x1": int(crop_x1),
+        "crop_x2": int(crop_x2),
+        "crop_y1": int(crop_y1),
+        "crop_y2": int(crop_y2),
+    }
+
+
+def sensor_roi_metadata(camera_info: dict[str, Any]) -> dict[str, Optional[int]]:
+    roi = camera_info.get("sensor_roi_applied")
+    if roi is None:
+        return {
+            "sensor_roi_x": None,
+            "sensor_roi_y": None,
+            "sensor_roi_width": None,
+            "sensor_roi_height": None,
+        }
+    x, y, w, h = roi
+    return {
+        "sensor_roi_x": None if x is None else int(x),
+        "sensor_roi_y": None if y is None else int(y),
+        "sensor_roi_width": None if w is None else int(w),
+        "sensor_roi_height": None if h is None else int(h),
+    }
+
+
+def sample_metadata(args: argparse.Namespace, point_names: list[str]) -> dict[str, Any]:
+    camera_info = getattr(args, "camera_info", {}) or {}
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "source": SOURCE_NAME,
+        "model_preset": args.model_preset,
+        "model_type": args.model_type,
+        "point_names": list(point_names),
+        "point_count": int(len(point_names)),
+        "pcutoff": float(args.pcutoff),
+        "pose_coordinate_frame": args.pose_coordinate_frame,
+        "camera_serial": camera_info.get("serial"),
+        "camera_model": camera_info.get("model"),
+        **sensor_roi_metadata(camera_info),
+        **crop_metadata(args),
+    }
+
+
+def make_metadata_message(args: argparse.Namespace, point_names: list[str]) -> dict[str, Any]:
+    csv_path = None if args.csv is None else str(Path(args.csv).expanduser())
+    return {
+        "message_type": "metadata",
+        "created_time_unix_s": time.time(),
+        "created_time_unix_ns": time.time_ns(),
+        "address": args.address,
+        "csv_path": csv_path,
+        "display_enabled": bool(args.display),
+        "display_scale": float(args.display_scale),
+        "display_fps": float(args.display_fps),
+        "pub_hwm": int(args.pub_hwm),
+        "dynamic_crop": bool(args.dynamic_crop),
+        "dynamic_margin": int(args.dynamic_margin),
+        **sample_metadata(args, point_names),
+    }
+
+
+CSV_BASE_FIELDNAMES = [
+    "message_type",
+    "schema_version",
+    "sample_status",
+    "source",
+    "frame_id",
+    "capture_time_unix_s",
+    "capture_time_unix_ns",
+    "publish_time_unix_s",
+    "publish_time_unix_ns",
+    "model_preset",
+    "model_type",
+    "point_count",
+    "camera_serial",
+    "camera_model",
+    "sensor_roi_x",
+    "sensor_roi_y",
+    "sensor_roi_width",
+    "sensor_roi_height",
+    "crop_x1",
+    "crop_x2",
+    "crop_y1",
+    "crop_y2",
+    "pose_coordinate_frame",
+    "center_x",
+    "center_y",
+    "diameter_px",
+    "diameter_h_px",
+    "diameter_v_px",
+    "confidence_mean",
+    "valid_points",
+    "camera_fps",
+    "inference_fps",
+    "latency_ms",
+]
+
+
+def csv_point_prefixes(point_names: list[str], n_points: int) -> list[str]:
+    prefixes: list[str] = []
+    seen: dict[str, int] = {}
+    for i in range(n_points):
+        base = point_names[i] if i < len(point_names) and point_names[i] else f"kp{i}"
+        count = seen.get(base, 0)
+        seen[base] = count + 1
+        prefixes.append(base if count == 0 else f"{base}_{count}")
+    return prefixes
+
+
+def make_csv_fieldnames(pose: np.ndarray, point_names: list[str]) -> list[str]:
+    pose = normalize_pose(pose)
+    fieldnames = list(CSV_BASE_FIELDNAMES)
+    for name in csv_point_prefixes(point_names, pose.shape[0]):
+        fieldnames.extend([f"{name}_x", f"{name}_y", f"{name}_likelihood"])
+    return fieldnames
+
+
+def make_csv_row(payload: dict[str, Any], pose: np.ndarray, point_names: list[str]) -> dict[str, Any]:
+    pose = normalize_pose(pose)
+    row = {name: payload.get(name) for name in CSV_BASE_FIELDNAMES}
+    for name, point in zip(csv_point_prefixes(point_names, pose.shape[0]), pose):
+        row[f"{name}_x"] = safe_float(point[0])
+        row[f"{name}_y"] = safe_float(point[1])
+        row[f"{name}_likelihood"] = safe_float(point[2])
+    return row
+
+
 def draw_overlay(
     frame: np.ndarray,
     pose: np.ndarray,
@@ -340,7 +517,7 @@ def draw_overlay(
 
     for i, row in enumerate(pose):
         x, y, p = float(row[0]), float(row[1]), float(row[2])
-        if x is None or y is None:
+        if not (math.isfinite(x) and math.isfinite(y)):
             continue
         color = (0, 255, 0) if p >= pcutoff else (0, 0, 255)
         cv2.circle(vis, (int(round(x)), int(round(y))), 3, color, -1, cv2.LINE_AA)
@@ -374,10 +551,10 @@ def draw_overlay(
         f"dlc_fps: {metrics.get('inference_fps') if metrics.get('inference_fps') is not None else 'nan'}",
         f"lat(ms): {metrics.get('latency_ms') if metrics.get('latency_ms') is not None else 'nan'}",
     ]
-    y0 = 20
+    y0 = 36
     for line in text_lines:
-        cv2.putText(vis, line, (10, y0), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-        y0 += 18
+        cv2.putText(vis, line, (10, y0), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2, cv2.LINE_AA)
+        y0 += 34
 
     if display_scale != 1.0:
         vis = cv2.resize(vis, None, fx=display_scale, fy=display_scale, interpolation=cv2.INTER_NEAREST)
@@ -433,7 +610,7 @@ def inference_loop(
 ) -> None:
     context = zmq.Context.instance()
     pub = context.socket(zmq.PUB)
-    pub.sndhwm = 1
+    pub.sndhwm = int(args.pub_hwm)
     pub.linger = 0
     pub.bind(args.address)
 
@@ -441,30 +618,6 @@ def inference_loop(
     csv_writer = None
 
     try:
-        if args.csv is not None:
-            csv_path = Path(args.csv)
-            csv_path.parent.mkdir(parents=True, exist_ok=True)
-            csv_file = csv_path.open("w", newline="")
-            csv_writer = csv.DictWriter(
-                csv_file,
-                fieldnames=[
-                    "frame_id",
-                    "capture_time_unix_s",
-                    "publish_time_unix_s",
-                    "center_x",
-                    "center_y",
-                    "diameter_px",
-                    "diameter_h_px",
-                    "diameter_v_px",
-                    "confidence_mean",
-                    "valid_points",
-                    "camera_fps",
-                    "inference_fps",
-                    "latency_ms",
-                ],
-            )
-            csv_writer.writeheader()
-
         dlc = DLCLive(
             args.model_path,
             model_type=args.model_type,
@@ -489,13 +642,16 @@ def inference_loop(
         eprint("[inf] DLCLive initialized")
 
         point_names = list(args.point_names)
+        static_sample_metadata = sample_metadata(args, point_names)
+        pub.send_json(make_metadata_message(args, point_names))
+
         inference_rate = RateMeter(window=50)
         last_display_t = 0.0
         current_pkt = first_pkt
 
         while not stop_event.is_set():
             infer_img = prepare_frame_for_dlc(current_pkt.frame, rgb_for_dlc=not args.pass_gray_to_dlc)
-            pose = normalize_pose(dlc.get_pose(infer_img))
+            pose = pose_to_acquired_frame(dlc.get_pose(infer_img), args)
 
             metrics = compute_eye_metrics(
                 pose,
@@ -507,30 +663,41 @@ def inference_loop(
                 pcutoff=args.pcutoff,
             )
 
-            t_pub_s = time.time_ns() / 1e9
+            t_pub_ns = time.time_ns()
+            t_pub_s = t_pub_ns / 1e9
             inf_fps = inference_rate.tick()
             cam_fps = camera_rate.current()
             latency_ms = 1000.0 * (t_pub_s - current_pkt.capture_time_unix_s)
 
             payload: dict[str, Any] = {
-                "source": "dlc_eye_streamer",
+                "message_type": "sample",
+                "schema_version": SCHEMA_VERSION,
+                **static_sample_metadata,
                 "frame_id": int(current_pkt.frame_id),
                 "capture_time_unix_s": float(current_pkt.capture_time_unix_s),
                 "capture_time_unix_ns": int(current_pkt.capture_time_unix_ns),
                 "publish_time_unix_s": float(t_pub_s),
-                "publish_time_unix_ns": int(time.time_ns()),
+                "publish_time_unix_ns": int(t_pub_ns),
                 "camera_fps": safe_float(cam_fps),
                 "inference_fps": safe_float(inf_fps),
                 "latency_ms": safe_float(latency_ms),
                 **metrics,
             }
 
+            payload["sample_status"] = sample_status(metrics, expected_point_count=len(point_names))
             payload["points"] = make_points_dict(pose, point_names)
+
+            if args.csv is not None and csv_writer is None:
+                csv_path = Path(args.csv)
+                csv_path.parent.mkdir(parents=True, exist_ok=True)
+                csv_file = csv_path.open("w", newline="")
+                csv_writer = csv.DictWriter(csv_file, fieldnames=make_csv_fieldnames(pose, point_names))
+                csv_writer.writeheader()
 
             pub.send_json(payload)
 
             if csv_writer is not None:
-                csv_writer.writerow({k: payload.get(k) for k in csv_writer.fieldnames or []})
+                csv_writer.writerow(make_csv_row(payload, pose, point_names))
                 csv_file.flush()
 
             now = time.perf_counter()
@@ -560,6 +727,13 @@ def inference_loop(
         pub.close(0)
 
 
+def display_window_is_closed(window_name: str) -> bool:
+    try:
+        return cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1
+    except cv2.error:
+        return True
+
+
 def display_loop(
     display_queue: "queue.Queue[DisplayPacket]",
     stop_event: threading.Event,
@@ -573,10 +747,14 @@ def display_loop(
                 pkt = display_queue.get(timeout=0.1)
             except queue.Empty:
                 key = cv2.waitKey(1) & 0xFF
-                if key in (27, ord("q")):
+                if key in (27, ord("q")) or display_window_is_closed(window_name):
                     stop_event.set()
                     break
                 continue
+
+            if display_window_is_closed(window_name):
+                stop_event.set()
+                break
 
             vis = draw_overlay(
                 frame=pkt.frame,
@@ -593,16 +771,51 @@ def display_loop(
             )
             cv2.imshow(window_name, vis)
             key = cv2.waitKey(1) & 0xFF
-            if key in (27, ord("q")):
+            if key in (27, ord("q")) or display_window_is_closed(window_name):
                 stop_event.set()
                 break
     finally:
         cv2.destroyAllWindows()
 
 
+def apply_model_preset(args: argparse.Namespace) -> argparse.Namespace:
+    if args.model_preset != "none":
+        preset = MODEL_PRESETS[args.model_preset]
+        for attr in ("kp_top", "kp_bottom", "kp_left", "kp_right", "kp_center"):
+            if getattr(args, attr) is None:
+                setattr(args, attr, preset[attr])
+        if not args.point_names:
+            args.point_names = list(preset["point_names"])
+
+    required = {
+        "--kp-top": args.kp_top,
+        "--kp-bottom": args.kp_bottom,
+        "--kp-left": args.kp_left,
+        "--kp-right": args.kp_right,
+    }
+    missing = [name for name, value in required.items() if value is None]
+    if missing:
+        raise SystemExit(
+            "Missing keypoint indices: "
+            + ", ".join(missing)
+            + ". Use --model-preset yanglab-pupil8 for the bundled model, "
+            + "or pass all --kp-* arguments for a custom model."
+        )
+    return args
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="FLIR + DLCLive + ZeroMQ eye tracker")
     p.add_argument("--model-path", required=True, help="Path to exported DLCLive model")
+    p.add_argument(
+        "--model-preset",
+        default="yanglab-pupil8",
+        choices=["yanglab-pupil8", "none"],
+        help=(
+            "Keypoint mapping preset. Default matches the bundled YangLab 8-point "
+            "pupil model. Use 'none' and pass --kp-* arguments for a custom model."
+        ),
+    )
     p.add_argument(
         "--model-type",
         default="base",
@@ -610,6 +823,7 @@ def parse_args() -> argparse.Namespace:
         help="DLCLive model backend",
     )
     p.add_argument("--address", default="tcp://127.0.0.1:5555", help="ZeroMQ PUB endpoint")
+    p.add_argument("--pub-hwm", type=int, default=10000, help="ZeroMQ PUB high-water mark")
     p.add_argument("--camera-index", type=int, default=0, help="PySpin camera index")
     p.add_argument("--timeout-ms", type=int, default=1000, help="PySpin GetNextImage timeout")
     p.add_argument("--buffer-count", type=int, default=3, help="Stream buffer count on host")
@@ -633,15 +847,25 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional DLCLive fixed crop in image pixels",
     )
+    p.add_argument(
+        "--pose-coordinate-frame",
+        choices=["acquired-frame", "crop"],
+        default="acquired-frame",
+        help=(
+            "Coordinate frame returned by DLCLive when --crop is used. "
+            "Use 'crop' only if your DLCLive build returns crop-relative points; "
+            "the streamer will add crop X1/Y1 before publishing."
+        ),
+    )
     p.add_argument("--dynamic-crop", action="store_true", help="Enable DLCLive dynamic cropping")
     p.add_argument("--dynamic-margin", type=int, default=20, help="Dynamic crop margin in pixels")
     p.add_argument("--pass-gray-to-dlc", action="store_true", help="Pass 2D grayscale frames directly into DLCLive")
     p.add_argument("--pcutoff", type=float, default=0.5, help="Likelihood threshold for valid keypoints")
 
-    p.add_argument("--kp-top", type=int, required=True, help="Index of top pupil keypoint")
-    p.add_argument("--kp-bottom", type=int, required=True, help="Index of bottom pupil keypoint")
-    p.add_argument("--kp-left", type=int, required=True, help="Index of left pupil keypoint")
-    p.add_argument("--kp-right", type=int, required=True, help="Index of right pupil keypoint")
+    p.add_argument("--kp-top", type=int, default=None, help="Index of top pupil keypoint")
+    p.add_argument("--kp-bottom", type=int, default=None, help="Index of bottom pupil keypoint")
+    p.add_argument("--kp-left", type=int, default=None, help="Index of left pupil keypoint")
+    p.add_argument("--kp-right", type=int, default=None, help="Index of right pupil keypoint")
     p.add_argument("--kp-center", type=int, default=None, help="Optional index of center pupil keypoint")
     p.add_argument(
         "--point-names",
@@ -654,8 +878,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--display-fps", type=float, default=30.0, help="Max overlay window refresh rate")
     p.add_argument("--display-scale", type=float, default=1.0, help="Scale factor for display window")
     p.add_argument("--window-name", default="DLC Eye Tracker", help="Display window title")
-    p.add_argument("--csv", default=None, help="Optional CSV log path")
-    return p.parse_args()
+    p.add_argument("--csv", required=True, help="Required CSV log path")
+    return apply_model_preset(p.parse_args())
 
 
 def main() -> int:
@@ -688,6 +912,7 @@ def main() -> int:
 
     try:
         info = configure_camera(cam, args)
+        args.camera_info = info
         eprint(f"[main] camera model={info.get('model')} serial={info.get('serial')}")
         if "sensor_roi_applied" in info:
             eprint(f"[main] sensor ROI applied={info['sensor_roi_applied']}")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from typing import Any
 
@@ -27,7 +28,7 @@ def _float_or_nan(value: Any) -> float:
     return out
 
 
-def open_subscriber(address: str = "tcp://127.0.0.1:5555", rcvhwm: int = 1):
+def open_subscriber(address: str = "tcp://127.0.0.1:5555", rcvhwm: int = 10000):
     sock = _ctx().socket(zmq.SUB)
     sock.linger = 0
     sock.setsockopt(zmq.RCVHWM, int(rcvhwm))
@@ -43,20 +44,43 @@ def close_socket(sock) -> None:
         pass
 
 
-def recv_latest_dict(sock, timeout_ms: int = 0):
+def recv_all_dicts(sock, timeout_ms: int = 0, max_messages: int = 10000) -> list[dict[str, Any]]:
     poller = zmq.Poller()
     poller.register(sock, zmq.POLLIN)
     events = dict(poller.poll(int(timeout_ms)))
     if sock not in events:
-        return {}
+        return []
 
-    msg = sock.recv_json()
+    messages = [sock.recv_json()]
     while True:
+        if len(messages) >= int(max_messages):
+            break
         try:
-            msg = sock.recv_json(flags=zmq.NOBLOCK)
+            messages.append(sock.recv_json(flags=zmq.NOBLOCK))
         except zmq.Again:
             break
-    return msg
+    return messages
+
+
+def recv_all_json(sock, timeout_ms: int = 0, max_messages: int = 10000) -> str:
+    messages = recv_all_dicts(sock, timeout_ms=timeout_ms, max_messages=max_messages)
+    if not messages:
+        return "[]"
+    return json.dumps(messages, separators=(",", ":"), sort_keys=True)
+
+
+def recv_latest_dict(sock, timeout_ms: int = 0):
+    messages = recv_all_dicts(sock, timeout_ms=timeout_ms)
+    if not messages:
+        return {}
+    return messages[-1]
+
+
+def recv_latest_json(sock, timeout_ms: int = 0) -> str:
+    msg = recv_latest_dict(sock, timeout_ms=timeout_ms)
+    if not msg:
+        return ""
+    return json.dumps(msg, separators=(",", ":"), sort_keys=True)
 
 
 def recv_latest(sock, timeout_ms: int = 0):
