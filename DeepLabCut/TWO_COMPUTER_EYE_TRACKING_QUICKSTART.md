@@ -32,6 +32,40 @@ Modern Ethernet ports usually handle direct computer-to-computer cables without 
 
 ## 2. Configure Static Ethernet IPs
 
+### Recommended: Use the Setup Script
+
+The `ToMatlab` folder contains a role-based setup script:
+
+```bash
+cd /home/wbs/Desktop/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
+./setup_two_computer_eye_link.sh --help
+```
+
+On the eye-tracking computer:
+
+```bash
+./setup_two_computer_eye_link.sh --role sender --iface enp172s0 --apply
+```
+
+On the behavior computer:
+
+```bash
+./setup_two_computer_eye_link.sh --role receiver --iface <IFACE> --apply
+```
+
+The script defaults to dry-run mode if `--apply` is omitted, so you can safely
+preview what it will do:
+
+```bash
+./setup_two_computer_eye_link.sh --role sender --iface enp172s0
+```
+
+It configures the `bb-eye-direct` NetworkManager profile, keeps the direct cable
+from becoming the default internet route, and prints the commands needed to test
+and launch the eye stream.
+
+### Manual Static IP Setup
+
 Run these commands on each computer. Replace `<IFACE>` with the wired interface used by the direct cable.
 
 Find the interface name:
