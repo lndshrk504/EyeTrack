@@ -5,7 +5,9 @@ Standalone eye-tracking repo extracted from `BehaviorBox`.
 This repo is split into four areas:
 
 - `DeepLabCut/`
-  Active eye-tracking code. This is the renamed successor of the old `DLC/` tree from `BehaviorBox`.
+  Active eye-tracking code (Python + MATLAB bridge + smoke checks).
+- `training/`
+  Helper CLI for creating, training, evaluating, and exporting DLC models.
 - `legacy/iRecHS2/`
   Restored legacy eye-tracking code, tests, docs, and assets, including the current legacy Windows executable.
 - `models/`
@@ -29,6 +31,13 @@ bootstrap_eye_track.m
 README.md
 ```
 
+## Quick starts in this repo
+
+- Two-computer deployment: `DeepLabCut/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md`
+- Streamer + MATLAB bridge details: `DeepLabCut/ToMatlab/README_eye_stream.md`
+- Model training/export flow: `training/README.md`
+- Image-only DLC sanity test: `Test/README.md`
+
 ## Bootstrap
 
 From MATLAB:
@@ -49,7 +58,7 @@ It does not call `addpath(genpath(...))`.
 
 ## Active MATLAB/Python boundary
 
-The active interop boundary is unchanged from the BehaviorBox copy:
+The active interop boundary is:
 
 - Producer side: Python
   `DeepLabCut/ToMatlab/dlc_eye_streamer.py`
@@ -80,18 +89,12 @@ The bootstrap script only prepares MATLAB path visibility. It does not set `pyen
 Active runtime models should be copied into `models/` as needed.
 
 - They are intentionally excluded from git history here.
-- See [models/README.md](models/README.md) for the expected active-model placement.
+- See [models/README.md](models/README.md) for expected active-model placement.
 
 ## Training
 
 A starter script for training and exporting custom DeepLabCut models from your own labeled footage is provided in `training/train_dlc_eye_model.py`.
-See `training/README.md` for an end-to-end walkthrough.
 
 ## Legacy assets
 
 Legacy source, tests, docs, and the current legacy Windows executable live under `legacy/iRecHS2/`.
-
-## Notes
-
-- This local repo currently has no remote configured.
-- This repo was created to let `BehaviorBox` transition toward a future submodule at `BehaviorBox/EyeTrack/` without deleting the current `BehaviorBox` tree yet.
