@@ -21,6 +21,8 @@ The behavior computer connects to that same address.
 
 Do not use `127.0.0.1` for a two-computer setup. `127.0.0.1` means "this same computer", so MATLAB on the behavior computer would try to connect to itself instead of the eye-tracking computer.
 
+Any `/home/wbs/...` paths below are example install paths from one machine. Replace them with the actual `BehaviorBox` and conda paths on your computers if they differ.
+
 ## 1. Physical Setup
 
 1. Connect the FLIR camera to the eye-tracking computer.
@@ -294,6 +296,8 @@ or, if using the full environment:
 /home/wbs/miniforge3/envs/dlclivegui/bin/python
 ```
 
+The helper scripts in `ToMatlab/` default to `bbeyezmq` and auto-detect common conda install roots under `$HOME` such as `miniforge3`, `mambaforge`, `miniconda3`, and `anaconda3`.
+
 ## 5. Start the Eye Stream on the Eye-Tracking Computer
 
 Run this on the eye-tracking computer:
@@ -333,49 +337,62 @@ ss -ltnp | grep 5555
 
 ## 6. Configure the Behavior Computer
 
-Run BehaviorBox from a terminal where these environment variables are set.
+Run BehaviorBox from a terminal where `BB_EYETRACK_ZMQ_ADDRESS` and `BB_EYETRACK_PYTHON` are set.
 
-If using the small `bbeyezmq` environment:
+From the `ToMatlab` folder on the behavior computer, source one of the helper wrappers. Source them; do not execute them.
 
 ```bash
-export BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555
-export BB_EYETRACK_PYTHON=/home/wbs/miniforge3/envs/bbeyezmq/bin/python
+cd /path/to/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
+
+# Small receiver environment with pyzmq only.
+source ./set_behavior_env_bbeyezmq.sh
+
+# Or, if MATLAB should use the full dlclivegui environment instead.
+source ./set_behavior_env_dlclivegui.sh
 ```
 
-If using the full `dlclivegui` environment for MATLAB's ZMQ bridge:
+These wrappers source `behavior_eye_tracking_env.sh`, set:
+
+```text
+BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555
+```
+
+and resolve `BB_EYETRACK_PYTHON` from common conda install locations under `$HOME`.
+
+If you prefer to set the values manually, use:
 
 ```bash
 export BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555
-export BB_EYETRACK_PYTHON=/home/wbs/miniforge3/envs/dlclivegui/bin/python
+export BB_EYETRACK_PYTHON=/actual/path/to/python
 ```
 
 Then start MATLAB from the same terminal:
 
 ```bash
-cd /home/wbs/Desktop/BehaviorBox
+cd /path/to/BehaviorBox
 matlab
 ```
 
-If MATLAB is already open, set the same values inside MATLAB before starting BehaviorBox:
+If MATLAB is already open, either restart it from the sourced terminal or set the same values inside MATLAB before starting BehaviorBox:
 
 ```matlab
 setenv('BB_EYETRACK_ZMQ_ADDRESS', 'tcp://10.55.0.1:5555')
-setenv('BB_EYETRACK_PYTHON', '/home/wbs/miniforge3/envs/bbeyezmq/bin/python')
+setenv('BB_EYETRACK_PYTHON', '/actual/path/to/python')
 ```
 
-Use the actual Python path on your behavior computer.
+Use the actual Python path on your behavior computer if the wrappers do not match your install layout.
 
 ## 7. Test MATLAB Receive Before Running Behavior
 
-Start the eye streamer first, then run this on the behavior computer:
+Start the eye streamer first. On the behavior computer, after sourcing one of the helper scripts above, run:
 
 ```bash
-cd /home/wbs/Desktop/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
+cd /path/to/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
 
 ./run_matlab_eye_receive_test.py \
-  --address tcp://10.55.0.1:5555 \
+  --address "$BB_EYETRACK_ZMQ_ADDRESS" \
   --duration 10 \
-  --python-exe /home/wbs/miniforge3/envs/bbeyezmq/bin/python
+  --python-exe "$BB_EYETRACK_PYTHON"
 ```
 
 Expected successful ending:
@@ -397,7 +414,7 @@ If there is no mouse eye in view, samples may have `sample_status=no_points`. Th
 
 1. Start the eye streamer on the eye-tracking computer.
 2. Confirm the behavior computer can receive samples with `run_matlab_eye_receive_test.py`.
-3. Start MATLAB on the behavior computer with `BB_EYETRACK_ZMQ_ADDRESS` and `BB_EYETRACK_PYTHON` set.
+3. On the behavior computer, source `set_behavior_env_bbeyezmq.sh` or `set_behavior_env_dlclivegui.sh`, then start MATLAB from that same terminal.
 4. Start BehaviorBox.
 5. Run behavior training or mapping animations.
 
@@ -448,6 +465,8 @@ On the behavior computer, confirm:
 echo "$BB_EYETRACK_ZMQ_ADDRESS"
 echo "$BB_EYETRACK_PYTHON"
 ```
+
+If either variable is empty, source one of the `set_behavior_env_*.sh` helper scripts again before launching MATLAB.
 
 The address must be:
 
@@ -569,16 +588,14 @@ python check_pyspin_camera.py
 Behavior computer:
 
 ```bash
-export BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555
-export BB_EYETRACK_PYTHON=/home/wbs/miniforge3/envs/bbeyezmq/bin/python
-
-cd /home/wbs/Desktop/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
-./run_matlab_eye_receive_test.py --address tcp://10.55.0.1:5555 --duration 10 --python-exe "$BB_EYETRACK_PYTHON"
+cd /path/to/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
+source ./set_behavior_env_bbeyezmq.sh
+./run_matlab_eye_receive_test.py --address "$BB_EYETRACK_ZMQ_ADDRESS" --duration 10 --python-exe "$BB_EYETRACK_PYTHON"
 ```
 
 Then start MATLAB from the same terminal:
 
 ```bash
-cd /home/wbs/Desktop/BehaviorBox
+cd /path/to/BehaviorBox
 matlab
 ```
