@@ -8,8 +8,19 @@ Start the FLIR -> DLCLive -> ZMQ stream from this folder:
 
 ```bash
 conda activate dlclivegui
-./run_eye_stream_production.py --frame-rate 60 --exposure-us 8000 --gain-auto continuous --display-fps 5
+./run_eye_stream_production.py \
+  --frame-rate 60 \
+  --exposure-us 8000 \
+  --gain-auto continuous \
+  --display-fps 5
 ```
+
+Key defaults from `run_eye_stream_production.py`:
+
+- address: `tcp://127.0.0.1:5555`
+- sensor ROI: `0 0 640 480`
+- display: enabled by default (`--no-display` disables)
+- CSV output directory: `/tmp/EyeTrack` (override with `--csv-dir`)
 
 The launcher writes outputs under `/tmp/EyeTrack` by default:
 

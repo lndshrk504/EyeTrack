@@ -2,7 +2,7 @@
 
 This folder provides a CLI for **fast visual sanity checks** of a trained DeepLabCut model on still images.
 
-The script runs DLC inference from your `config.yaml`, writes CSV outputs, and generates labeled preview images with keypoint names and likelihood scores.
+The script runs DLC inference from your `config.yaml`, writes CSV outputs, and can generate labeled preview images with keypoint names and likelihood scores.
 
 ## Script
 
@@ -45,7 +45,8 @@ python Test/run_dlc_image_test.py \
 - `--shuffle`: model shuffle index.
 - `--trainingsetindex`: `TrainingFraction` index.
 - `--gpu`: GPU id for inference (`0`, `1`, etc). Omit to use DLC default.
-- `--output-csv`: path for flattened CSV output.
+- `--output-csv`: flattened CSV output path. Defaults to `<image-dir>/dlc_predictions.csv`.
+- `--preview-dir`: optional preview output directory. Defaults to `<image-dir>/dlc_previews`.
 
 ## Outputs
 
@@ -55,4 +56,4 @@ python Test/run_dlc_image_test.py \
    - `<keypoint>_x`
    - `<keypoint>_y`
    - `<keypoint>_p`
-3. Labeled preview images in `--preview-dir` with keypoint name + likelihood text.
+3. Optional labeled preview images in `--preview-dir` with keypoint name + likelihood text.
