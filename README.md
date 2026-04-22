@@ -18,6 +18,12 @@ DeepLabCut/
   ToMatlab/
   Tests/
   environment.yaml
+training/
+  README.md
+  train_dlc_eye_model.py
+Test/
+  README.md
+  run_dlc_image_test.py
 legacy/
   iRecHS2/
 models/
@@ -78,6 +84,16 @@ Active runtime models should be copied into `models/` as needed.
 
 - They are intentionally excluded from git history here.
 - See [models/README.md](models/README.md) for the expected active-model placement.
+
+## Training
+
+A starter script for training and exporting custom DeepLabCut models from your own labeled footage is provided in `training/train_dlc_eye_model.py`.
+See `training/README.md` for an end-to-end walkthrough.
+
+## Testing on images
+
+Use `Test/run_dlc_image_test.py` to run DeepLabCut inference from `config.yaml` over a folder of input images, export CSV predictions, and create labeled preview overlays for quick sanity checks.
+See `Test/README.md` for usage examples.
 
 ## Legacy assets
 
