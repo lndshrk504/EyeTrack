@@ -582,7 +582,17 @@ class ReceiverRequestHandler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length)
         if not raw:
             return {}
-        return json.loads(raw.decode("utf-8"))
+        payload = json.loads(raw.decode("utf-8"))
+        if isinstance(payload, str):
+            # Older MATLAB HTTP requests can send a JSON string literal whose
+            # contents are another JSON object. Accept that form for backward
+            # compatibility instead of failing later with "'str' has no attribute 'get'".
+            payload = json.loads(payload)
+        if payload is None:
+            return {}
+        if not isinstance(payload, dict):
+            raise ValueError("JSON request body must decode to an object")
+        return payload
 
     def _send_json(self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
         raw = json.dumps(payload).encode("utf-8")
