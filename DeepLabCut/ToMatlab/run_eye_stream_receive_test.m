@@ -1,16 +1,16 @@
 function result = run_eye_stream_receive_test(options)
-% RUN_EYE_STREAM_RECEIVE_TEST Verify MATLAB can receive the DLC eye stream.
+% RUN_EYE_STREAM_RECEIVE_TEST Verify MATLAB can import the deferred eye stream.
 %
-% Start the Python streamer first, then run this from MATLAB or through
+% Start the external eye receiver first, then run this from MATLAB or through
 % run_matlab_eye_receive_test.py. The test uses BehaviorBoxEyeTrack, which is
-% the same receiver class used by BehaviorBoxWheel.
+% the same receiver client used by BehaviorBoxWheel.
 
 arguments
     options.Address string = "tcp://127.0.0.1:5555"
+    options.ReceiverUrl string = "http://127.0.0.1:8765"
     options.DurationSeconds double = 10
     options.MinSamples double = 5
     options.OutputMat string = ""
-    options.PythonExecutable string = ""
     options.PollIntervalSeconds double = 0.05
 end
 
@@ -25,10 +25,6 @@ if isfile(startupFile)
     run(startupFile);
 end
 
-if strlength(strtrim(options.PythonExecutable)) == 0
-    options.PythonExecutable = string(getenv("BB_EYETRACK_PYTHON"));
-end
-
 if strlength(strtrim(options.OutputMat)) == 0
     stamp = string(datetime("now", "Format", "yyyyMMdd_HHmmss"));
     options.OutputMat = fullfile(tempdir, "eye_stream_matlab_receive_" + stamp + ".mat");
@@ -36,41 +32,38 @@ end
 
 fprintf("MATLAB eye-stream receive test\n");
 fprintf("Address: %s\n", options.Address);
+fprintf("Receiver URL: %s\n", options.ReceiverUrl);
 fprintf("Duration: %.1f seconds\n", options.DurationSeconds);
 fprintf("Output MAT: %s\n", options.OutputMat);
-if strlength(strtrim(options.PythonExecutable)) > 0
-    fprintf("Python for MATLAB bridge: %s\n", options.PythonExecutable);
-else
-    fprintf("Python for MATLAB bridge: auto-detect\n");
-end
 
 eyeTrackArgs = { ...
     'Address', options.Address, ...
     'SourceMode', "localhost", ...
-    'BridgeDir', thisDir, ...
-    'StartTimerOnStart', false, ...
-    'WaitForReadySeconds', 2, ...
-    'PollTimeoutMs', 50};
-if strlength(strtrim(options.PythonExecutable)) > 0
-    eyeTrackArgs = [eyeTrackArgs, {'PythonExecutable', options.PythonExecutable}];
-end
+    'ReceiverUrl', options.ReceiverUrl};
 
 eyeTrack = BehaviorBoxEyeTrack(eyeTrackArgs{:});
 cleanupObj = onCleanup(@() cleanupEyeTrack_(eyeTrack));
 
 eyeTrack.setSessionClock(tic, datetime("now"));
-eyeTrack.markTrial(0);
+eyeTrack.configureSession( ...
+    "SessionId", "receive_test_session", ...
+    "SessionKind", "receive_test", ...
+    "SessionLabel", "receive-test", ...
+    "OutputDir", fullfile(tempdir, "behaviorbox_receive_test_eye_raw"));
 
 if ~eyeTrack.start()
     error("run_eye_stream_receive_test:ConnectFailed", ...
-        "BehaviorBoxEyeTrack could not open a subscriber: %s", eyeTrack.LastErrorMessage);
+        "BehaviorBoxEyeTrack could not connect to the eye receiver: %s", eyeTrack.LastErrorMessage);
 end
 
-fprintf("Subscriber opened. Waiting for ready samples...\n");
+assert(eyeTrack.beginSegment("SegmentId", "receive_test_segment", "SegmentKind", "receive_test", ...
+    "TrialNumber", 0, "Mode", "receive_test", "ScanImageFile", 1), ...
+    'BehaviorBoxEyeTrack could not open the receive-test segment.');
+
+fprintf("Receiver session opened. Waiting for finalized samples...\n");
 nextProgress = tic;
 testTimer = tic;
 while toc(testTimer) < options.DurationSeconds
-    eyeTrack.pollAvailable();
     if toc(nextProgress) >= 1
         printProgress_(eyeTrack);
         nextProgress = tic;
@@ -78,7 +71,8 @@ while toc(testTimer) < options.DurationSeconds
     pause(options.PollIntervalSeconds);
 end
 
-eyeTrack.finalDrain();
+eyeTrack.closeSegment();
+eyeTrack.finalizeSession();
 record = eyeTrack.getRecord();
 meta = eyeTrack.getMeta();
 save(options.OutputMat, "record", "meta");

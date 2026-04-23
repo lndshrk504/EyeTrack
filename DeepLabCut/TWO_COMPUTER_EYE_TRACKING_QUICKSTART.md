@@ -9,7 +9,7 @@ Use this layout:
 | Role | Static IP | Runs |
 | --- | --- | --- |
 | Eye-tracking computer | `10.55.0.1` | FLIR camera, PySpin, DLCLive, `dlc_eye_streamer.py`, preview window |
-| Behavior computer | `10.55.0.2` | MATLAB, BehaviorBox, `BehaviorBoxEyeTrack` subscriber |
+| Behavior computer | `10.55.0.2` | `behavior_eye_receiver.py`, MATLAB, BehaviorBox, `BehaviorBoxEyeTrack` importer |
 
 The eye-tracking computer publishes ZMQ messages at:
 
@@ -17,9 +17,9 @@ The eye-tracking computer publishes ZMQ messages at:
 tcp://10.55.0.1:5555
 ```
 
-The behavior computer connects to that same address.
+The behavior computer receiver connects to that same address.
 
-Do not use `127.0.0.1` for a two-computer setup. `127.0.0.1` means "this same computer", so MATLAB on the behavior computer would try to connect to itself instead of the eye-tracking computer.
+Do not use `127.0.0.1` for a two-computer setup. `127.0.0.1` means "this same computer", so the behavior-computer receiver would try to connect to itself instead of the eye-tracking computer.
 
 Any `/home/wbs/...` paths below are example install paths from one machine. Replace them with the actual `BehaviorBox` and conda paths on your computers if they differ.
 
@@ -272,11 +272,16 @@ Optional full-frame setup preview:
 ../Tests/FLIRCam.py --auto-contrast --scale 0.5
 ```
 
-## 4. Install the MATLAB ZMQ Python on the Behavior Computer
+## 4. Install the Receiver Environment on the Behavior Computer
 
-The behavior computer does not need DLCLive to receive eye data. It only needs a Python executable that MATLAB can use and that has `pyzmq`.
+The behavior computer no longer uses MATLAB as the live ZMQ subscriber. Instead, it runs a separate Python receiver service that:
 
-If the behavior computer already has `dlclivegui`, you can use that. Otherwise create a small receiver environment:
+- subscribes to the streamer ZMQ address
+- stamps samples with behavior-computer receive time
+- writes per-segment chunk CSV + metadata JSON files
+- exposes a localhost HTTP API that `BehaviorBoxEyeTrack` uses
+
+Create a small receiver environment with `pyzmq`:
 
 ```bash
 conda create -n bbeyezmq -c conda-forge python=3.10 pyzmq -y
@@ -284,19 +289,19 @@ conda activate bbeyezmq
 python -c "import zmq; print(zmq.__version__)"
 ```
 
-The Python executable will usually be:
+Using the name `bbeyezmq` is fine and matches the existing lab convention, but the name itself is not required. The important requirement is that the environment can run `run_eye_receiver_service.py` and import `zmq`.
+
+The receiver Python executable will usually be:
 
 ```text
 /home/wbs/miniforge3/envs/bbeyezmq/bin/python
 ```
 
-or, if using the full environment:
+or, if you choose to reuse the full environment:
 
 ```text
 /home/wbs/miniforge3/envs/dlclivegui/bin/python
 ```
-
-The helper scripts in `ToMatlab/` default to `bbeyezmq` and auto-detect common conda install roots under `$HOME` such as `miniforge3`, `mambaforge`, `miniconda3`, and `anaconda3`.
 
 ## 5. Start the Eye Stream on the Eye-Tracking Computer
 
@@ -335,64 +340,38 @@ Confirm the TCP port is listening:
 ss -ltnp | grep 5555
 ```
 
-## 6. Configure the Behavior Computer
+## 6. Start the Deferred Receiver on the Behavior Computer
 
-Run BehaviorBox from a terminal where `BB_EYETRACK_ZMQ_ADDRESS` and `BB_EYETRACK_PYTHON` are set.
-
-From the `ToMatlab` folder on the behavior computer, source one of the helper wrappers. Source them; do not execute them.
+Run this on the behavior computer from `ToMatlab/`:
 
 ```bash
 cd /path/to/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
+conda activate bbeyezmq
 
-# Small receiver environment with pyzmq only.
-source ./set_behavior_env_bbeyezmq.sh
-
-# Or, if MATLAB should use the full dlclivegui environment instead.
-source ./set_behavior_env_dlclivegui.sh
+./run_eye_receiver_service.py \
+  --address tcp://10.55.0.1:5555 \
+  --api-port 8765
 ```
 
-These wrappers source `behavior_eye_tracking_env.sh`, set:
+Important:
 
-```text
-BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555
-```
+- `--address tcp://10.55.0.1:5555` must point to the eye-tracking computer, not `127.0.0.1`.
+- The receiver HTTP API defaults to `http://127.0.0.1:8765` on the behavior computer.
+- The receiver writes per-session raw eye chunks under the session output directory that BehaviorBox provides when it opens a session.
 
-and resolve `BB_EYETRACK_PYTHON` from common conda install locations under `$HOME`.
-
-If you prefer to set the values manually, use:
-
-```bash
-export BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555
-export BB_EYETRACK_PYTHON=/actual/path/to/python
-```
-
-Then start MATLAB from the same terminal:
-
-```bash
-cd /path/to/BehaviorBox
-matlab
-```
-
-If MATLAB is already open, either restart it from the sourced terminal or set the same values inside MATLAB before starting BehaviorBox:
-
-```matlab
-setenv('BB_EYETRACK_ZMQ_ADDRESS', 'tcp://10.55.0.1:5555')
-setenv('BB_EYETRACK_PYTHON', '/actual/path/to/python')
-```
-
-Use the actual Python path on your behavior computer if the wrappers do not match your install layout.
+Leave this process running while you use BehaviorBox.
 
 ## 7. Test MATLAB Receive Before Running Behavior
 
-Start the eye streamer first. On the behavior computer, after sourcing one of the helper scripts above, run:
+Start the eye streamer first, then start the receiver, then run this on the behavior computer:
 
 ```bash
 cd /path/to/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
 
 ./run_matlab_eye_receive_test.py \
-  --address "$BB_EYETRACK_ZMQ_ADDRESS" \
-  --duration 10 \
-  --python-exe "$BB_EYETRACK_PYTHON"
+  --address tcp://10.55.0.1:5555 \
+  --receiver-url http://127.0.0.1:8765 \
+  --duration 10
 ```
 
 Expected successful ending:
@@ -412,21 +391,42 @@ If there is no mouse eye in view, samples may have `sample_status=no_points`. Th
 
 ## 8. Run BehaviorBox
 
+If the receiver is using the default local API URL `http://127.0.0.1:8765`, MATLAB does not need extra environment variables. If you changed the receiver API URL, set `BB_EYETRACK_RECEIVER_URL` before starting MATLAB.
+
+Default case:
+
+```bash
+cd /path/to/BehaviorBox
+matlab
+```
+
+Non-default receiver URL:
+
+```bash
+export BB_EYETRACK_RECEIVER_URL=http://127.0.0.1:9000
+cd /path/to/BehaviorBox
+matlab
+```
+
+Recommended startup order:
+
 1. Start the eye streamer on the eye-tracking computer.
-2. Confirm the behavior computer can receive samples with `run_matlab_eye_receive_test.py`.
-3. On the behavior computer, source `set_behavior_env_bbeyezmq.sh` or `set_behavior_env_dlclivegui.sh`, then start MATLAB from that same terminal.
-4. Start BehaviorBox.
-5. Run behavior training or mapping animations.
+2. Start the deferred receiver on the behavior computer.
+3. Confirm MATLAB can import samples with `run_matlab_eye_receive_test.py`.
+4. Start MATLAB on the behavior computer.
+5. Start BehaviorBox.
+6. Run behavior training or mapping animations.
 
-BehaviorBox discovers the eye stream at session startup. If it cannot connect, it should print a visible MATLAB warning and continue the behavior session without blocking.
+BehaviorBox now talks to the local receiver service, not directly to the remote ZMQ stream. If it cannot connect to the receiver, it should issue a visible MATLAB warning and continue the session without blocking.
 
-Saved behavior files should include:
+Saved behavior files should include, when data is available:
 
+- `EyeTrackRecord`
+- `EyeTrackSegmentMeta`
 - `EyeTrackingRecord`
 - `EyeTrackingMeta`
-- eye-aligned `FrameAlignedRecord` for training
-- eye-aligned `WheelDisplayRecord` for training
-- eye-aligned `MapLog` for mapping animations
+- `FrameAlignedRecord`
+- `EyeAlignedRecord`
 
 ## 9. Shutdown Order
 
@@ -434,9 +434,10 @@ Recommended order:
 
 1. Stop the BehaviorBox session and let it save.
 2. Wait for the MATLAB save to complete.
-3. Stop the Python eye streamer on the eye-tracking computer with `Ctrl+C`.
+3. Stop the deferred receiver on the behavior computer with `Ctrl+C`.
+4. Stop the Python eye streamer on the eye-tracking computer with `Ctrl+C`.
 
-BehaviorBox drains remaining received eye samples during save, but it does not stop the Python streamer on the other computer.
+BehaviorBox finalizes/imports eye chunks during save, but it does not stop either external Python process for you.
 
 ## 10. Troubleshooting
 
@@ -457,34 +458,31 @@ Confirm:
 - both are on the Ethernet interface connected by the direct cable
 - no gateway is assigned to the direct-cable profile
 
-### MATLAB Cannot Connect
+### MATLAB Cannot Connect to the Receiver
 
-On the behavior computer, confirm:
+On the behavior computer, confirm the receiver process is still running:
 
 ```bash
-echo "$BB_EYETRACK_ZMQ_ADDRESS"
-echo "$BB_EYETRACK_PYTHON"
+ps -ef | grep run_eye_receiver_service.py
+ss -ltnp | grep 8765
 ```
 
-If either variable is empty, source one of the `set_behavior_env_*.sh` helper scripts again before launching MATLAB.
+If you are using a non-default receiver URL, confirm:
 
-The address must be:
+```bash
+echo "$BB_EYETRACK_RECEIVER_URL"
+```
+
+The default is:
 
 ```text
-tcp://10.55.0.1:5555
+http://127.0.0.1:8765
 ```
 
-On the eye-tracking computer, confirm the streamer is running and listening:
+If the receiver is up but MATLAB still cannot connect, test the health endpoint directly:
 
 ```bash
-ss -ltnp | grep 5555
-```
-
-If `ufw` is active:
-
-```bash
-sudo ufw status
-sudo ufw allow from 10.55.0.2 to any port 5555 proto tcp
+curl http://127.0.0.1:8765/health
 ```
 
 ### PySpin Works in SpinView But Not in Python
@@ -514,15 +512,15 @@ If no camera is detected:
 - reboot after installing Spinnaker
 - confirm USB permissions and Spinnaker udev rules were installed
 
-### Eye Stream Is Running But MATLAB Gets Zero Samples
+### Eye Stream Is Running But the Receiver Gets Zero Samples
 
 Common causes:
 
 - streamer was started with `--address tcp://127.0.0.1:5555`
-- behavior computer is still using `tcp://127.0.0.1:5555`
+- receiver was pointed at `tcp://127.0.0.1:5555` instead of `tcp://10.55.0.1:5555`
 - firewall blocks port `5555`
 - direct-cable IPs are on different subnets
-- MATLAB is using a Python without `pyzmq`
+- the behavior-computer receiver environment cannot import `zmq`
 
 Fix by using:
 
@@ -535,12 +533,18 @@ Eye-tracking computer:
 Behavior computer:
 
 ```bash
-export BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555
+./run_eye_receiver_service.py --address tcp://10.55.0.1:5555 --api-port 8765
+```
+
+Then confirm the receiver is healthy:
+
+```bash
+curl http://127.0.0.1:8765/status
 ```
 
 ### Behavior Display Still Lags
 
-Move all DLC inference and preview display to the eye-tracking computer. On the behavior computer, MATLAB only receives small ZMQ JSON messages.
+Move all DLC inference and preview display to the eye-tracking computer. On the behavior computer, MATLAB only talks to the receiver API and imports finalized chunks outside the hot loops.
 
 On the eye-tracking computer, lower preview load if needed:
 
@@ -589,8 +593,9 @@ Behavior computer:
 
 ```bash
 cd /path/to/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab
-source ./set_behavior_env_bbeyezmq.sh
-./run_matlab_eye_receive_test.py --address "$BB_EYETRACK_ZMQ_ADDRESS" --duration 10 --python-exe "$BB_EYETRACK_PYTHON"
+conda activate bbeyezmq
+./run_eye_receiver_service.py --address tcp://10.55.0.1:5555 --api-port 8765
+./run_matlab_eye_receive_test.py --address tcp://10.55.0.1:5555 --receiver-url http://127.0.0.1:8765 --duration 10
 ```
 
 Then start MATLAB from the same terminal:

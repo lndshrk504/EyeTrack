@@ -5,7 +5,7 @@ Standalone eye-tracking repo extracted from `BehaviorBox`.
 This repo is split into four areas:
 
 - `DeepLabCut/`
-  Active eye-tracking code (Python + MATLAB bridge + smoke checks).
+  Active eye-tracking code (Python streamer + deferred receiver + MATLAB importer + smoke checks).
 - `training/`
   Helper CLI for creating, training, evaluating, and exporting DLC models.
 - `legacy/iRecHS2/`
@@ -34,7 +34,7 @@ README.md
 ## Quick starts in this repo
 
 - Two-computer deployment: `DeepLabCut/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md`
-- Streamer + MATLAB bridge details: `DeepLabCut/ToMatlab/README_eye_stream.md`
+- Streamer + receiver + MATLAB importer details: `DeepLabCut/ToMatlab/README_eye_stream.md`
 - Model training/export flow: `training/README.md`
 - Image-only DLC sanity test: `Test/README.md`
 
@@ -56,33 +56,37 @@ disp(paths);
 
 It does not call `addpath(genpath(...))`.
 
-## Active MATLAB/Python boundary
+## Active Runtime Boundary
 
 The active interop boundary is:
 
-- Producer side: Python
+- Producer side on the eye-tracking computer: Python
   `DeepLabCut/ToMatlab/dlc_eye_streamer.py`
-- MATLAB bridge helper: Python
-  `DeepLabCut/ToMatlab/matlab_zmq_bridge.py`
-- Consumer side: MATLAB
-  `DeepLabCut/ToMatlab/receive_eye_stream_demo.m`
+- Receiver side on the behavior computer: Python
+  `DeepLabCut/ToMatlab/behavior_eye_receiver.py`
+- Consumer/import side in MATLAB:
+  `BehaviorBoxEyeTrack.m`
 
 Transport:
 
-- ZeroMQ JSON stream, default endpoint `tcp://127.0.0.1:5555`
+- ZeroMQ JSON stream from streamer to receiver, default endpoint `tcp://127.0.0.1:5555`
+- append-only chunk CSV + metadata JSON written by the receiver
+- localhost HTTP control/status API, default receiver URL `http://127.0.0.1:8765`
 
-Primary live fields consumed by MATLAB today:
+Canonical eye alignment timebase in BehaviorBox v1:
 
-- `frame_id`
+- `t_receive_us` stamped on the behavior computer by the deferred receiver
+
+Preserved provenance fields:
+
 - `capture_time_unix_s`
+- `capture_time_unix_ns`
 - `publish_time_unix_s`
-- `center_x`
-- `center_y`
-- `diameter_px`
-- `confidence_mean`
-- `latency_ms`
+- `publish_time_unix_ns`
 
-The bootstrap script only prepares MATLAB path visibility. It does not set `pyenv` for you or choose a Python interpreter.
+`DeepLabCut/ToMatlab/matlab_zmq_bridge.py` and `DeepLabCut/ToMatlab/receive_eye_stream_demo.m` are retained for older reference/demo usage, but they are no longer the active production ingest path for BehaviorBox.
+
+The bootstrap script only prepares MATLAB path visibility. It does not start the receiver service or configure Python environments for you.
 
 ## Models
 

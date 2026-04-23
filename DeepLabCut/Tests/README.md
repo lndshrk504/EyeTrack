@@ -8,9 +8,13 @@ cameras, and inference timing. These scripts are diagnostics, not production pip
 The active runtime path in this repo is:
 
 - `../ToMatlab/dlc_eye_streamer.py`
-- `../ToMatlab/matlab_zmq_bridge.py`
+- `../ToMatlab/behavior_eye_receiver.py`
+- `../ToMatlab/run_eye_receiver_service.py`
 - `../ToMatlab/run_eye_stream_production.py`
 - `../ToMatlab/run_matlab_eye_receive_test.py`
+- `../ToMatlab/run_eye_stream_receive_test.m`
+
+`../ToMatlab/matlab_zmq_bridge.py` is retained as older reference tooling, but it is not the production ingest path used by BehaviorBox.
 
 ## Scripts
 
@@ -63,4 +67,11 @@ python smoke_dlc_flir_inference.py \
   --camera-index 0 \
   --sensor-roi 0 0 640 480 \
   --frames 120
+```
+
+Receiver smoke test lives in `../ToMatlab/`:
+
+```bash
+cd ../ToMatlab
+python test_behavior_eye_receiver.py
 ```
