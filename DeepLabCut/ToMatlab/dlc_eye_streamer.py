@@ -126,6 +126,15 @@ def safe_float(value: Any) -> Optional[float]:
     return value
 
 
+def format_overlay_number(value: Any, decimals: int = 2) -> str:
+    if value is None:
+        return "nan"
+    value = safe_float(value)
+    if value is None:
+        return "nan"
+    return f"{value:.{decimals}f}"
+
+
 def drop_put(q: "queue.Queue[Any]", item: Any) -> None:
     try:
         q.put_nowait(item)
@@ -639,12 +648,12 @@ def draw_overlay(
 
     text_lines = [
         f"frame: {metrics.get('frame_id', -1)}",
-        f"diam(px): {metrics.get('diameter_px') if metrics.get('diameter_px') is not None else 'nan'}",
-        f"center: ({metrics.get('center_x') if metrics.get('center_x') is not None else 'nan'}, {metrics.get('center_y') if metrics.get('center_y') is not None else 'nan'})",
-        f"conf: {metrics.get('confidence_mean') if metrics.get('confidence_mean') is not None else 'nan'}",
-        f"cam_fps: {metrics.get('camera_fps') if metrics.get('camera_fps') is not None else 'nan'}",
-        f"dlc_fps: {metrics.get('inference_fps') if metrics.get('inference_fps') is not None else 'nan'}",
-        f"lat(ms): {metrics.get('latency_ms') if metrics.get('latency_ms') is not None else 'nan'}",
+        f"diam(px): {format_overlay_number(metrics.get('diameter_px'))}",
+        f"center: ({format_overlay_number(metrics.get('center_x'))}, {format_overlay_number(metrics.get('center_y'))})",
+        f"conf: {format_overlay_number(metrics.get('confidence_mean'))}",
+        f"cam_fps: {format_overlay_number(metrics.get('camera_fps'))}",
+        f"dlc_fps: {format_overlay_number(metrics.get('inference_fps'))}",
+        f"lat(ms): {format_overlay_number(metrics.get('latency_ms'))}",
     ]
     y0 = 36
     for line in text_lines:

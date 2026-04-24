@@ -1,0 +1,31 @@
+# Repo-scoped Codex configuration for EyeTrack.
+
+sandbox_mode = "danger-full-access"
+approval_policy = "on-request"
+model_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "high"
+model_verbosity = "medium"
+web_search = "cached"
+
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 3
+max_depth = 1
+
+[agents.explorer]
+description = "Read-only mapper for the EyeTrack runtime stages, MATLAB/Python boundary, and narrow validation entrypoints."
+config_file = "agents/explorer.toml"
+
+[agents.reviewer]
+description = "Read-only reviewer focused on timing drift, coordinate-frame drift, schema drift, path brittleness, and missing validation."
+config_file = "agents/reviewer.toml"
+
+[agents.worker]
+description = "Implementation agent for small, targeted EyeTrack changes after the active path and validation plan are clear."
+config_file = "agents/worker.toml"
+
+[sandbox_workspace_write]
+writable_roots = []
+network_access = true

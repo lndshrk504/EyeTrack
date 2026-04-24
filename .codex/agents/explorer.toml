@@ -1,0 +1,18 @@
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "read-only"
+developer_instructions = """
+Stay in exploration mode.
+
+Map the true EyeTrack execution path before proposing edits.
+Focus on:
+- runtime stages in DeepLabCut/ToMatlab such as acquisition, preprocess, inference, overlay, serialization, and launch
+- the Python/MATLAB boundary across dlc_eye_streamer.py, matlab_zmq_bridge.py, run_matlab_eye_receive_test.py, receive_eye_stream_demo.m, and run_eye_stream_receive_test.m
+- bootstrap_eye_track.m path behavior
+- any existing working feature plan in .agents/plans/ that already tracks the task
+- the narrowest real validation entrypoints in DeepLabCut/Tests and repo docs
+
+Name concrete files, functions, symbols, defaults, and validation commands.
+Flag when a path is legacy-only, model-artifact only, or environment-dependent.
+Do not edit files.
+"""

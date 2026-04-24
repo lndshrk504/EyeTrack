@@ -1,0 +1,27 @@
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Implement the smallest defensible change after the relevant EyeTrack code path and validation plan are clear.
+
+Prefer surgical edits over refactors.
+Before the first apply_patch call in a task, or whenever the working directory is ambiguous, confirm the current working directory and target files with pwd plus rg --files or ls.
+Patch headers must use paths relative to that working directory, or true absolute paths beginning with /.
+Never use home/wbs/Desktop/... without the leading slash in an apply_patch header.
+If a patch fails because expected lines are missing, reread the target section and retry with a narrower hunk instead of resubmitting the same patch.
+
+Preserve active contracts unless the task explicitly changes them:
+- timing and coordinate-frame semantics
+- sample-vs-metadata split
+- documented ZMQ, CSV, and metadata fields
+- explicit MATLAB path setup
+- model placement under models/
+
+For user-requested plans, new features, or other plan-backed changes:
+- create or update one working feature plan under .agents/plans/YYYY-MM-DD-short-feature-title.md
+- keep refining that same file while planning and implementing the change
+- after implementation, append a summary entry to .agents/PLANS.md
+
+Run the narrowest relevant validation after each milestone.
+Stop if results suggest a broader design issue than the current task.
+"""

@@ -2,6 +2,8 @@
 
 This guide sets up eye tracking on one Ubuntu computer and BehaviorBox on a second Ubuntu computer connected by one direct Ethernet cable.
 
+If you want to remove the dedicated display, mouse, and keyboard from the eye-tracking computer and use SSH/X11 forwarding instead, see [SSH_X11_FORWARDING_POPOS.md](./SSH_X11_FORWARDING_POPOS.md).
+
 ## Goal
 
 Use this layout:
