@@ -57,6 +57,7 @@ The new helper scripts in this guide do not replace those paths. They wrap them 
 The helper scripts live here:
 
 - [`DeepLabCut/ToMatlab/ssh_x11/setup_eye_host_ssh_x11.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/setup_eye_host_ssh_x11.sh)
+- [`DeepLabCut/ToMatlab/ssh_x11/test_x11_forwarding_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/test_x11_forwarding_over_ssh.sh)
 - [`DeepLabCut/ToMatlab/ssh_x11/open_alignment_preview_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/open_alignment_preview_over_ssh.sh)
 - [`DeepLabCut/ToMatlab/ssh_x11/start_eye_stream_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/start_eye_stream_over_ssh.sh)
 - [`DeepLabCut/ToMatlab/ssh_x11/eye_stream_status_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/eye_stream_status_over_ssh.sh)
@@ -98,6 +99,19 @@ echo "$DISPLAY"
 ```
 
 If that prints an empty string, the behavior computer does not currently have a local X display available for `ssh -Y`.
+
+Then test forwarding:
+
+```bash
+cd ~/Desktop/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab/ssh_x11
+./test_x11_forwarding_over_ssh.sh --host wbs@10.55.0.1
+```
+
+If `xclock` is installed on the eye-tracking computer and you want a visual test:
+
+```bash
+./test_x11_forwarding_over_ssh.sh --host wbs@10.55.0.1 --try-xclock
+```
 
 ## 1. Open a Forwarded Alignment Preview
 
@@ -232,7 +246,8 @@ echo "$DISPLAY"
 Check remotely:
 
 ```bash
-ssh -Y wbs@10.55.0.1 'echo "remote DISPLAY=$DISPLAY"'
+cd ~/Desktop/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab/ssh_x11
+./test_x11_forwarding_over_ssh.sh --host wbs@10.55.0.1
 ```
 
 The remote `DISPLAY` value should not be empty during an X11-forwarded session.

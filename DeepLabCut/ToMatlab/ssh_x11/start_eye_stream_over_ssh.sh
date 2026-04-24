@@ -3,8 +3,8 @@
 set -euo pipefail
 
 HOST=""
-REMOTE_REPO='${HOME}/Desktop/BehaviorBox/EyeTrack'
-CONDA_SH='${HOME}/miniforge3/etc/profile.d/conda.sh'
+REMOTE_REPO='~/Desktop/BehaviorBox/EyeTrack'
+CONDA_SH='~/miniforge3/etc/profile.d/conda.sh'
 CONDA_ENV='dlclivegui'
 EXTRA_ARGS=()
 USE_X11=0
@@ -17,8 +17,8 @@ Usage:
 
 Options:
   --host USER@HOST      Required SSH target for the eye-tracking computer
-  --remote-repo PATH    Remote EyeTrack repo root. Default: ${HOME}/Desktop/BehaviorBox/EyeTrack
-  --conda-sh PATH       Remote conda.sh path. Default: ${HOME}/miniforge3/etc/profile.d/conda.sh
+  --remote-repo PATH    Remote EyeTrack repo root. Default: ~/Desktop/BehaviorBox/EyeTrack
+  --conda-sh PATH       Remote conda.sh path. Default: ~/miniforge3/etc/profile.d/conda.sh
   --conda-env NAME      Remote conda environment. Default: dlclivegui
   -h, --help            Show this help
 
@@ -114,7 +114,20 @@ shift 3
 
 expand_path() {
   local raw="$1"
-  eval "printf '%s\n' \"$raw\""
+  case "$raw" in
+    "~")
+      printf '%s\n' "$HOME"
+      ;;
+    "~/"*)
+      printf '%s/%s\n' "$HOME" "${raw#~/}"
+      ;;
+    "\${HOME}"*)
+      printf '%s%s\n' "$HOME" "${raw#\$\{HOME\}}"
+      ;;
+    *)
+      printf '%s\n' "$raw"
+      ;;
+  esac
 }
 
 repo_root="$(expand_path "$repo_root")"

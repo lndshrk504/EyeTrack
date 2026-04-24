@@ -3,7 +3,7 @@
 set -euo pipefail
 
 HOST=""
-REMOTE_REPO='${HOME}/Desktop/BehaviorBox/EyeTrack'
+REMOTE_REPO='~/Desktop/BehaviorBox/EyeTrack'
 
 usage() {
   cat <<'EOF'
@@ -47,7 +47,20 @@ repo_root="$1"
 
 expand_path() {
   local raw="$1"
-  eval "printf '%s\n' \"$raw\""
+  case "$raw" in
+    "~")
+      printf '%s\n' "$HOME"
+      ;;
+    "~/"*)
+      printf '%s/%s\n' "$HOME" "${raw#~/}"
+      ;;
+    "\${HOME}"*)
+      printf '%s%s\n' "$HOME" "${raw#\$\{HOME\}}"
+      ;;
+    *)
+      printf '%s\n' "$raw"
+      ;;
+  esac
 }
 
 repo_root="$(expand_path "$repo_root")"
