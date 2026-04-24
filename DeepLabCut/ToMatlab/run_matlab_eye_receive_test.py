@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -14,32 +13,19 @@ def _matlab_string(value: str | Path) -> str:
     return "'" + text.replace("'", "''") + "'"
 
 
-def _default_python_executable() -> Path:
-    env_value = os.environ.get("BB_EYETRACK_PYTHON")
-    if env_value:
-        return Path(env_value)
-
-    home = Path.home()
-    candidates = [
-        home / "miniforge3" / "envs" / "dlclivegui" / "bin" / "python",
-        home / "mambaforge" / "envs" / "dlclivegui" / "bin" / "python",
-        home / "miniconda3" / "envs" / "dlclivegui" / "bin" / "python",
-        home / "anaconda3" / "envs" / "dlclivegui" / "bin" / "python",
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return Path(sys.executable)
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the MATLAB-side eye-stream receive test from the command line."
     )
     parser.add_argument(
         "--address",
-        default="tcp://127.0.0.1:5555",
-        help="ZMQ address published by dlc_eye_streamer.py.",
+        default=os.environ.get("BB_EYETRACK_ZMQ_ADDRESS", "tcp://127.0.0.1:5555"),
+        help="ZMQ address that the external eye receiver is subscribed to.",
+    )
+    parser.add_argument(
+        "--receiver-url",
+        default=os.environ.get("BB_EYETRACK_RECEIVER_URL", "http://127.0.0.1:8765"),
+        help="Local HTTP URL for the deferred eye receiver service.",
     )
     parser.add_argument(
         "--duration",
@@ -63,11 +49,6 @@ def parse_args() -> argparse.Namespace:
         default=os.environ.get("MATLAB_BIN", "matlab"),
         help="MATLAB executable to call.",
     )
-    parser.add_argument(
-        "--python-exe",
-        default="",
-        help="Python executable MATLAB should use for pyzmq. Default: dlclivegui env if found.",
-    )
     return parser.parse_args()
 
 
@@ -79,29 +60,27 @@ def main() -> int:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_mat = f"/tmp/eye_stream_matlab_receive_{stamp}.mat"
 
-    python_exe = Path(args.python_exe) if args.python_exe else _default_python_executable()
-
     env = os.environ.copy()
-    env["BB_EYETRACK_PYTHON"] = str(python_exe)
+    env["BB_EYETRACK_RECEIVER_URL"] = args.receiver_url
 
     matlab_code = (
         f"addpath({_matlab_string(here)}); "
         "run_eye_stream_receive_test("
         f"'Address', {_matlab_string(args.address)}, "
+        f"'ReceiverUrl', {_matlab_string(args.receiver_url)}, "
         f"'DurationSeconds', {args.duration:.6g}, "
         f"'MinSamples', {int(args.min_samples)}, "
-        f"'OutputMat', {_matlab_string(output_mat)}, "
-        f"'PythonExecutable', {_matlab_string(python_exe)}"
+        f"'OutputMat', {_matlab_string(output_mat)}"
         ");"
     )
 
     command = [args.matlab_bin, "-batch", matlab_code]
     print("Running MATLAB eye-stream receive test", flush=True)
     print(f"Address: {args.address}", flush=True)
+    print(f"Receiver URL: {args.receiver_url}", flush=True)
     print(f"Duration: {args.duration:.1f} seconds", flush=True)
     print(f"Output MAT: {output_mat}", flush=True)
     print(f"MATLAB executable: {args.matlab_bin}", flush=True)
-    print(f"Python for MATLAB bridge: {python_exe}", flush=True)
     return subprocess.run(command, cwd=here, env=env, check=False).returncode
 
 

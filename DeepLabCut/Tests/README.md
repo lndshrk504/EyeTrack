@@ -1,22 +1,26 @@
 # Tests
 
 This folder contains bounded Python-side smoke checks for eye-tracking environments,
-cameras, and inference timing. These scripts are not production implementation code.
+cameras, and inference timing. These scripts are diagnostics, not production pipeline code.
 
-The active production path is:
+## Production path (for reference)
+
+The active runtime path in this repo is:
 
 - `../ToMatlab/dlc_eye_streamer.py`
-- `../ToMatlab/matlab_zmq_bridge.py`
-- `../../BehaviorBoxEyeTrack.m`
-- `../../BehaviorBoxWheel.m`
+- `../ToMatlab/behavior_eye_receiver.py`
+- `../ToMatlab/run_eye_receiver_service.py`
+- `../ToMatlab/run_eye_stream_production.py`
+- `../ToMatlab/run_matlab_eye_receive_test.py`
+- `../ToMatlab/run_eye_stream_receive_test.m`
+
+`../ToMatlab/matlab_zmq_bridge.py` is retained as older reference tooling, but it is not the production ingest path used by BehaviorBox.
 
 ## Scripts
 
 - `VerCheck.py`: prints Python executable, environment, package versions, TensorFlow
-  CUDA/cuDNN/TensorRT build metadata, and visible TensorFlow GPUs. Use this to compare
-  different DLC/DLCLive/DLCLiveGUI environments.
-- `TestSpin.py`: bounded PySpin smoke test for FLIR/Point Grey cameras. It releases
-  images and camera/system resources cleanly.
+  CUDA/cuDNN/TensorRT build metadata, and visible TensorFlow GPUs.
+- `TestSpin.py`: bounded PySpin smoke test for FLIR/Point Grey cameras.
 - `GSTOCV.py`: bounded OpenCV smoke test for GStreamer/Aravis cameras or regular USB
   cameras.
 - `smoke_dlc_flir_inference.py`: bounded FLIR + DLCLive timing smoke test that reports
@@ -25,6 +29,8 @@ The active production path is:
 - `CheckReqs.py`: compact TensorFlow CUDA/cuDNN build-info check.
 
 ## Examples
+
+Run from `DeepLabCut/Tests/`.
 
 Runtime environment inventory:
 
@@ -55,10 +61,17 @@ FLIR + DLC timing:
 
 ```bash
 python smoke_dlc_flir_inference.py \
-  --model-path /home/wbs/Desktop/BehaviorBox/EyeTrack/models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --model-path ../../models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
   --model-preset yanglab-pupil8 \
   --model-type base \
   --camera-index 0 \
   --sensor-roi 0 0 640 480 \
   --frames 120
+```
+
+Receiver smoke test lives in `../ToMatlab/`:
+
+```bash
+cd ../ToMatlab
+python test_behavior_eye_receiver.py
 ```

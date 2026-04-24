@@ -1,0 +1,32 @@
+_________________________________________________________________________________________________
+888888b.            888                        d8b                  888888b.                     
+888  "88b           888                        Y8P                  888  "88b                    
+888  .88P           888                                             888  .88P                    
+8888888K.   .d88b.  88888b.   8888b.  888  888 888  .d88b.  888d888 8888888K.   .d88b.  888  888 
+888  "Y88b d8P  Y8b 888 "88b     "88b 888  888 888 d88""88b 888P"   888  "Y88b d88""88b `Y8bd8P
+888    888 88888888 888  888 .d888888 Y88  88P 888 888  888 888     888    888 888  888   X88K   
+888   d88P Y8b.     888  888 888  888  Y8bd8P  888 Y88..88P 888     888   d88P Y88..88P .d8""8b. 
+8888888P"   "Y8888  888  888 "Y888888   Y88P   888  "Y88P"  888     8888888P"   "Y88P"  888  888 
+_________________________________________________________________________________________________
+- - - Checking all connected Arduinos - - -
+Found device: Wheel1 on port: /dev/ttyACM0
+Found device: Time1 on port: /dev/ttyACM1
+Selecting device: Wheel1 on port: /dev/ttyACM0
+------SET UP-------
+Wheel Input: Accu-Coder Rotary Encoder 
+- connect Encoder Power (white wire) to Arduino +5V 
+- connect Encoder Ground (black wire) to Arduino GND 
+- connect A (brown wire) to Arduino pin D2 
+- connect B (red wire) to Arduino pin D3 
+- connect Water reward valve to Arduino pin D6
+------------------
+Setting up...
+- - - Connecting to Behavior Arduino - - -
+Box ID: Wheel1Readout begins below...0
+Enter new duration for ri
+ght reward:Setting duration to: 0.0400Right reward duration set to: 0.04
+- - - Success - - -
+- - - Connecting to Timestamp Arduino - - -
+- - - Success - - -
+Elapsed time is 2.513852 seconds.
+Ready
