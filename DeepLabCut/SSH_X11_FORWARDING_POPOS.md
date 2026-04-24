@@ -3,6 +3,7 @@
 This guide shows how to remove the dedicated display, mouse, and keyboard from the eye-tracking computer while still being able to:
 
 - preview the FLIR camera during setup,
+- capture FLIR training images through the forwarded preview,
 - start the production eye stream over SSH,
 - check whether the remote eye-stream process is running,
 - stop the remote eye-stream process over SSH.
@@ -22,10 +23,12 @@ Recommended workflow:
 
 1. Run the one-time SSH/X11 setup script on the eye-tracking computer.
 2. From the behavior computer, open a forwarded FLIR preview for alignment.
-3. Close that preview after the mouse is centered and focused.
-4. Start the production eye stream headless over SSH with `--no-display`.
-5. Check process status over SSH when needed.
-6. Stop the production eye stream over SSH at the end of the session.
+3. Optionally open a forwarded FLIR training-frame capture window and save raw
+   images for future retraining.
+4. Close those preview windows after setup or image collection.
+5. Start the production eye stream headless over SSH with `--no-display`.
+6. Check process status over SSH when needed.
+7. Stop the production eye stream over SSH at the end of the session.
 
 That pattern is safer than leaving the main inference preview window open for hours.
 
@@ -35,6 +38,8 @@ These are the existing repo paths involved in SSH/X11 use:
 
 - Preview-only alignment path:
   [`DeepLabCut/Tests/FLIRCam.py`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/Tests/FLIRCam.py)
+- Training-frame capture path:
+  [`DeepLabCut/Tests/capture_flir_training_frames.py`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/Tests/capture_flir_training_frames.py)
 - Production launcher:
   [`DeepLabCut/ToMatlab/run_eye_stream_production.py`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/run_eye_stream_production.py)
 - Production streamer and OpenCV display loop:
@@ -59,6 +64,7 @@ The helper scripts live here:
 - [`DeepLabCut/ToMatlab/ssh_x11/setup_eye_host_ssh_x11.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/setup_eye_host_ssh_x11.sh)
 - [`DeepLabCut/ToMatlab/ssh_x11/test_x11_forwarding_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/test_x11_forwarding_over_ssh.sh)
 - [`DeepLabCut/ToMatlab/ssh_x11/open_alignment_preview_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/open_alignment_preview_over_ssh.sh)
+- [`DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh)
 - [`DeepLabCut/ToMatlab/ssh_x11/start_eye_stream_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/start_eye_stream_over_ssh.sh)
 - [`DeepLabCut/ToMatlab/ssh_x11/eye_stream_status_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/eye_stream_status_over_ssh.sh)
 - [`DeepLabCut/ToMatlab/ssh_x11/stop_eye_stream_over_ssh.sh`](/Users/willsnyder/Desktop/EyeTrack/DeepLabCut/ToMatlab/ssh_x11/stop_eye_stream_over_ssh.sh)
@@ -137,7 +143,36 @@ The script:
 
 Close the preview window, or press `q` or `Esc`, when alignment is done.
 
-## 2. Start the Production Eye Stream Headless
+## 2. Capture Training Frames Through X11
+
+From the behavior computer:
+
+```bash
+cd ~/Desktop/BehaviorBox/EyeTrack/DeepLabCut/ToMatlab/ssh_x11
+./open_training_capture_over_ssh.sh \
+  --host wbs@10.55.0.1 \
+  -- \
+  --camera-index 0 \
+  --auto-contrast \
+  --scale 0.5
+```
+
+The script:
+
+- opens a trusted X11 SSH session with `ssh -Y`,
+- activates the remote `dlclivegui` conda environment,
+- runs `DeepLabCut/Tests/capture_flir_training_frames.py` on the eye-tracking computer,
+- draws the preview window on the behavior computer,
+- writes saved PNGs, `manifest.csv`, and `metadata.json` on the eye-tracking
+  computer under `~/Desktop/EyeTrackTrainingFrames/` by default.
+
+In the forwarded preview, press `s` or Space to save the current raw frame.
+Press `q` or `Esc`, or close the window, when image collection is done.
+
+The saved PNGs are raw camera arrays. Preview scaling, overlay text, and
+`--auto-contrast` are not baked into the saved training images.
+
+## 3. Start the Production Eye Stream Headless
 
 After alignment looks good, start the production streamer without a GUI:
 
@@ -162,7 +197,7 @@ If you do not explicitly pass `--display`, the wrapper adds `--no-display` autom
 
 Run this from a dedicated terminal tab or pane. Stop it with `Ctrl+C` when you are finished, or use the stop script below from another terminal.
 
-## 3. Check Whether the Remote Stream Is Running
+## 4. Check Whether the Remote Stream Is Running
 
 From the behavior computer:
 
@@ -177,7 +212,7 @@ This reports:
 - whether port `5555` is listening,
 - the most recent CSV files under `/tmp/EyeTrack`.
 
-## 4. Stop the Remote Stream from Another Terminal
+## 5. Stop the Remote Stream from Another Terminal
 
 From the behavior computer:
 
@@ -257,7 +292,9 @@ The remote `DISPLAY` value should not be empty during an X11-forwarded session.
 That is expected over SSH/X11. Lower the amount of work:
 
 - use `--scale 0.5` or smaller for `FLIRCam.py`,
+- use `--scale 0.5` or smaller for `capture_flir_training_frames.py`,
 - keep the preview only long enough to align the mouse,
+- use the training capture preview only long enough to collect images,
 - run the production streamer with `--no-display` after setup.
 
 ### The Streamer Stops When the Preview Window Closes
@@ -271,5 +308,6 @@ For your room setup, the least fragile arrangement is:
 1. no dedicated display on the eye-tracking computer,
 2. one-time SSH/X11 setup on the eye-tracking computer,
 3. forwarded `FLIRCam.py` preview from the behavior computer only when aligning,
-4. headless production inference over SSH for the session itself,
-5. status and stop commands over SSH from the behavior computer.
+4. forwarded `capture_flir_training_frames.py` preview only when collecting training images,
+5. headless production inference over SSH for the session itself,
+6. status and stop commands over SSH from the behavior computer.

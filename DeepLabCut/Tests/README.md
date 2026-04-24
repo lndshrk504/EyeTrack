@@ -21,6 +21,8 @@ The active runtime path in this repo is:
 - `VerCheck.py`: prints Python executable, environment, package versions, TensorFlow
   CUDA/cuDNN/TensorRT build metadata, and visible TensorFlow GPUs.
 - `TestSpin.py`: bounded PySpin smoke test for FLIR/Point Grey cameras.
+- `capture_flir_training_frames.py`: FLIR/PySpin raw-frame capture utility for
+  collecting candidate DeepLabCut retraining images.
 - `GSTOCV.py`: bounded OpenCV smoke test for GStreamer/Aravis cameras or regular USB
   cameras.
 - `smoke_dlc_flir_inference.py`: bounded FLIR + DLCLive timing smoke test that reports
@@ -44,6 +46,43 @@ PySpin frame grab:
 ```bash
 python TestSpin.py --camera-index 0 --sensor-roi 0 0 640 480 --frames 120
 ```
+
+FLIR training-frame capture:
+
+```bash
+python capture_flir_training_frames.py
+```
+
+By default this opens a preview, uses production-like camera settings
+(`Mono8`, sensor ROI `0 0 640 480`, 60 Hz, 6000 us exposure, gain auto off),
+and writes timestamped sessions under `~/Desktop/EyeTrackTrainingFrames/`.
+Press `s` or Space to save the current raw frame; press `q` or Esc to quit.
+The saved PNGs are the raw camera arrays, not the preview overlay or scaled
+display image.
+
+Headless timed capture:
+
+```bash
+python capture_flir_training_frames.py \
+  --output-dir ~/Desktop/EyeTrackTrainingFrames \
+  --seconds 2 \
+  --save-every 10 \
+  --no-preview
+```
+
+Each run writes `frames/*.png`, `manifest.csv`, and `metadata.json` inside a
+new `session_YYYYMMDD_HHMMSS/` folder.
+
+Forwarded SSH/X11 capture from the behavior computer:
+
+```bash
+cd ../ToMatlab/ssh_x11
+./open_training_capture_over_ssh.sh --host wbs@10.55.0.1 -- --auto-contrast --scale 0.5
+```
+
+The forwarded preview runs on the eye-tracking computer and displays on the
+behavior computer. Saved frames are written on the eye-tracking computer under
+`~/Desktop/EyeTrackTrainingFrames/` by default.
 
 GStreamer/Aravis camera:
 
