@@ -83,6 +83,8 @@ cd ../ToMatlab/ssh_x11
 The forwarded preview runs on the eye-tracking computer and displays on the
 behavior computer. Saved frames are written on the eye-tracking computer under
 `~/Desktop/EyeTrackTrainingFrames/` by default.
+See `../ToMatlab/ssh_x11/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md` for the full
+step-by-step workflow.
 
 GStreamer/Aravis camera:
 

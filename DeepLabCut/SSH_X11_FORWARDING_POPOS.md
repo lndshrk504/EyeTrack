@@ -145,6 +145,9 @@ Close the preview window, or press `q` or `Esc`, when alignment is done.
 
 ## 2. Capture Training Frames Through X11
 
+For the focused image-capture instructions, see
+[`DeepLabCut/ToMatlab/ssh_x11/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md`](./ToMatlab/ssh_x11/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md).
+
 From the behavior computer:
 
 ```bash

@@ -38,7 +38,7 @@ Working feature plans live under `.agents/plans/`. Use those files for planning,
 
 ## 2026-04-24 - SSH/X11 FLIR Training Capture
 - Plan file: `.agents/plans/2026-04-24-flir-training-frame-capture.md`
-- Summary: Added an SSH/X11 wrapper for launching the FLIR training-frame capture preview from the behavior computer while saving raw training images on the eye-tracking computer.
-- Changed files: `DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh`, `DeepLabCut/SSH_X11_FORWARDING_POPOS.md`, `DeepLabCut/Tests/README.md`, `.agents/plans/2026-04-24-flir-training-frame-capture.md`, `.agents/PLANS.md`
-- Validation: `bash -n DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh` passed; `DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh --help` passed; `python3 -m py_compile DeepLabCut/Tests/capture_flir_training_frames.py` passed; `python3 DeepLabCut/Tests/capture_flir_training_frames.py --help` passed; `git diff --check` passed.
+- Summary: Added an SSH/X11 wrapper and focused instructional Markdown file for launching the FLIR training-frame capture preview from the behavior computer while saving raw training images on the eye-tracking computer.
+- Changed files: `DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh`, `DeepLabCut/ToMatlab/ssh_x11/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md`, `DeepLabCut/SSH_X11_FORWARDING_POPOS.md`, `DeepLabCut/Tests/README.md`, `.agents/plans/2026-04-24-flir-training-frame-capture.md`, `.agents/PLANS.md`
+- Validation: `bash -n DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh` passed; `DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh --help` passed; `python3 -m py_compile DeepLabCut/Tests/capture_flir_training_frames.py` passed; `python3 DeepLabCut/Tests/capture_flir_training_frames.py --help` passed; `test -f DeepLabCut/ToMatlab/ssh_x11/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md` passed; `git diff --check` passed.
 - Follow-ups: Run `./open_training_capture_over_ssh.sh --host wbs@10.55.0.1 -- --auto-contrast --scale 0.5` from the behavior computer and confirm saved images appear under the eye-tracking computer's `~/Desktop/EyeTrackTrainingFrames/`.

@@ -14,6 +14,7 @@ DeepLabCut/TensorFlow retraining images under `~/Desktop/EyeTrackTrainingFrames`
 - `DeepLabCut/Tests/capture_flir_training_frames.py`
 - `DeepLabCut/Tests/README.md`
 - `DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh`
+- `DeepLabCut/ToMatlab/ssh_x11/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md`
 - `DeepLabCut/SSH_X11_FORWARDING_POPOS.md`
 - `.agents/plans/2026-04-24-flir-training-frame-capture.md`
 - `.agents/PLANS.md`
@@ -38,6 +39,9 @@ DeepLabCut/TensorFlow retraining images under `~/Desktop/EyeTrackTrainingFrames`
   `manifest.csv`, and `metadata.json`.
 - Add an SSH/X11 wrapper so the behavior computer can open the capture preview
   on the eye-tracking computer and save images through the forwarded window.
+- Add a focused instructional Markdown file for the forwarded training-frame
+  capture workflow, including commands, output layout, verification, and
+  troubleshooting.
 - Document the new utility in `DeepLabCut/Tests/README.md`.
 - Document the forwarded capture workflow in `DeepLabCut/SSH_X11_FORWARDING_POPOS.md`.
 
@@ -55,6 +59,8 @@ DeepLabCut/TensorFlow retraining images under `~/Desktop/EyeTrackTrainingFrames`
   passed.
 - `DeepLabCut/ToMatlab/ssh_x11/open_training_capture_over_ssh.sh --help`
   passed.
+- `test -f DeepLabCut/ToMatlab/ssh_x11/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md`
+  passed.
 - `git diff --check` passed.
 
 ## Implementation summary
@@ -64,6 +70,8 @@ DeepLabCut/TensorFlow retraining images under `~/Desktop/EyeTrackTrainingFrames`
   writing, and clean missing-module reporting.
 - Added `open_training_capture_over_ssh.sh` for launching the capture preview
   over `ssh -Y` from the behavior computer.
+- Added `FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md` as the focused user-facing
+  instruction file for the X11 image recording workflow.
 - Updated the tests README with default preview usage and headless timed capture
   usage.
 - Updated the SSH/X11 guide with the forwarded training-frame capture workflow.
