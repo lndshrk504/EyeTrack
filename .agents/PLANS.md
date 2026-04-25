@@ -56,3 +56,10 @@ Working feature plans live under `.agents/plans/`. Use those files for planning,
 - Changed files: `README.md`, `Cam-Tests/README.md`, `Docs/README_eye_stream.md`, `Docs/SSH_X11_FORWARDING_POPOS.md`, `Docs/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md`, `Docs/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md`, `Train-Test-Model/train-README.md`, `Train-Test-Model/test-README.md`, `.agents/plans/2026-04-25-doc-readme-accuracy-cleanup.md`, `.agents/PLANS.md`
 - Validation: `rg -n "EyeTrack/DeepLabCut|DeepLabCut/ToMatlab|bootstrap_eye_track|legacy/iRecHS2" README.md Docs Cam-Tests Stream-DeepLabCut Train-Test-Model Models` returned no matches; `rg -n "wbs@10\.55\.0\.1|/home/wbs" Docs README.md Cam-Tests Train-Test-Model` returned no matches; `git diff --check` passed.
 - Follow-ups: Run the live SSH/X11 and two-computer commands on the actual Linux machines before treating those workflows as hardware-validated.
+
+## 2026-04-25 - Single-Computer Eye Tracking Quickstart
+- Plan file: `.agents/plans/2026-04-25-single-computer-eye-tracking-quickstart.md`
+- Summary: Added a quickstart for running the FLIR/DLCLive streamer, Python receiver, MATLAB, and BehaviorBox on the same computer using localhost ZMQ and the receiver HTTP API.
+- Changed files: `Docs/SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md`, `README.md`, `Docs/README_eye_stream.md`, `.agents/plans/2026-04-25-single-computer-eye-tracking-quickstart.md`, `.agents/PLANS.md`
+- Validation: `rg -n "SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART" README.md Docs/README_eye_stream.md Docs/SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md` found the new links; `rg -n "wbs@|/home/wbs|--address tcp://10\.55\.0\.1:5555|--address tcp://10\.55\.0\.2:5555" Docs/SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md` returned no matches; `git diff --check` passed.
+- Follow-ups: Run the one-computer sequence on the real FLIR/MATLAB machine and confirm BehaviorBox session saves include eye-tracking records.

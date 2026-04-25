@@ -21,8 +21,8 @@ ssh_x11/
   stream startup, status checks, and shutdown.
 
 Docs/
-  Two-computer setup, SSH/X11 workflow, stream contract, and training-frame
-  capture instructions.
+  Single-computer setup, two-computer setup, SSH/X11 workflow, stream contract,
+  and training-frame capture instructions.
 
 Models/
   Local runtime model landing zone. Model blobs are intentionally ignored by git.
@@ -85,6 +85,7 @@ python3 Cam-Tests/smoke_dlc_flir_inference.py \
 
 ## Main Docs
 
+- Single-computer deployment: [Docs/SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md](Docs/SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md)
 - Two-computer deployment: [Docs/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md](Docs/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md)
 - SSH/X11 workflow: [Docs/SSH_X11_FORWARDING_POPOS.md](Docs/SSH_X11_FORWARDING_POPOS.md)
 - FLIR training-frame capture over SSH/X11: [Docs/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md](Docs/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md)

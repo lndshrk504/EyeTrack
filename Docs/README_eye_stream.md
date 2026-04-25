@@ -21,6 +21,13 @@ Recommended startup order:
 3. Run `run_matlab_eye_receive_test.py` against the receiver.
 4. Start MATLAB and BehaviorBox.
 
+For a one-computer setup, both the streamer and receiver stay on localhost.
+See [SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md](./SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md).
+
+For a direct-cable two-computer setup, the streamer binds to the eye-tracking
+computer's direct-cable IP and the receiver connects from the behavior computer.
+See [TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md](./TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md).
+
 ## Deferred Receiver
 
 Run the external receiver on the behavior computer before starting BehaviorBox:
