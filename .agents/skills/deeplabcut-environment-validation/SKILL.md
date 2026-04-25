@@ -1,6 +1,6 @@
 ---
 name: deeplabcut-environment-validation
-description: Use this skill when a task changes or diagnoses the EyeTrack runtime environment, camera/backend validation scripts, dependency checks, environment.yaml, check_pyspin_camera.py, DeepLabCut/Tests/*, or SSH/X11 setup for the eye-tracking stack.
+description: Use this skill when a task changes or diagnoses the EyeTrack runtime environment, camera/backend validation scripts, dependency checks, environment.yaml, check_pyspin_camera.py, Cam-Tests/*, or SSH/X11 setup for the eye-tracking stack.
 ---
 
 # DeepLabCut environment validation
@@ -30,13 +30,13 @@ Diagnose environment and hardware issues without confusing missing dependencies,
 
 3. Choose the narrowest relevant validation.
    Typical checks:
-   - package inventory: `python3 DeepLabCut/Tests/VerCheck.py --strict`
-   - TensorFlow build metadata: `python3 DeepLabCut/Tests/CheckReqs.py`
-   - PySpin camera enumeration: `python3 DeepLabCut/ToMatlab/check_pyspin_camera.py`
-   - FLIR smoke: `python3 DeepLabCut/Tests/TestSpin.py --camera-index 0 --sensor-roi 0 0 640 480 --frames 120`
-   - OpenCV backend smoke: `python3 DeepLabCut/Tests/GSTOCV.py --backend usb --source 0 --width 640 --height 480 --fps 30 --frames 120`
-   - FLIR preview: `python3 DeepLabCut/Tests/FLIRCam.py --camera-index 0 --frames 120`
-   - FLIR + DLCLive timing: `python3 DeepLabCut/Tests/smoke_dlc_flir_inference.py --model-path <exported_model_dir> --model-preset yanglab-pupil8 --model-type base --camera-index 0 --sensor-roi 0 0 640 480 --frames 120`
+   - package inventory: `python3 Cam-Tests/VerCheck.py --strict`
+   - TensorFlow build metadata: `python3 Cam-Tests/CheckReqs.py`
+   - PySpin camera enumeration: `python3 Stream-DeepLabCut/check_pyspin_camera.py`
+   - FLIR smoke: `python3 Cam-Tests/TestSpin.py --camera-index 0 --sensor-roi 0 0 640 480 --frames 120`
+   - OpenCV backend smoke: `python3 Cam-Tests/GSTOCV.py --backend usb --source 0 --width 640 --height 480 --fps 30 --frames 120`
+   - FLIR preview: `python3 Cam-Tests/FLIRCam.py --camera-index 0 --frames 120`
+   - FLIR + DLCLive timing: `python3 Cam-Tests/smoke_dlc_flir_inference.py --model-path <exported_model_dir> --model-preset yanglab-pupil8 --model-type base --camera-index 0 --sensor-roi 0 0 640 480 --frames 120`
 
 4. Interpret failures conservatively.
    Separate:

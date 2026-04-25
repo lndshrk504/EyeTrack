@@ -1,13 +1,14 @@
 # Active Model Layout
 
-This repo intentionally does not track the heavy active runtime model artifacts in git.
+This repo intentionally does not track the heavy active runtime model artifacts
+in git.
 
 Copy the active model you want to use into this directory tree manually.
 
 Current recommended layout:
 
 ```text
-models/
+Models/
   <model-name>/
     snapshot-*.data-00000-of-00001
     snapshot-*.index
@@ -20,6 +21,9 @@ models/
 Notes:
 
 - Keep only active model artifacts here.
-- For compatibility, `models/active/<model-name>/` also works if you prefer that extra nesting.
-- `models/` contents other than this file are ignored by git in this local repo.
-- The test scripts under `DeepLabCut/Tests/` look here by default and will use the single directory under `models/`, or `models/active/` if that folder exists. You can also pass `--model-path`.
+- For compatibility, `Models/active/<model-name>/` also works if you prefer
+  that extra nesting.
+- `Models/` contents other than this file are ignored by git in this local repo.
+- The camera/inference smoke scripts under `Cam-Tests/` look here by default
+  and will use the single directory under `Models/`, or `Models/active/` if
+  that folder exists. You can also pass `--model-path`.

@@ -53,9 +53,9 @@ Avoid silent bugs at the Python/MATLAB boundary.
 
 6. Choose the narrowest relevant validation.
    Typical checks:
-   - CLI surface: `python3 DeepLabCut/ToMatlab/run_matlab_eye_receive_test.py --help`
-   - live receive smoke with streamer running: `python3 DeepLabCut/ToMatlab/run_matlab_eye_receive_test.py --duration 10`
-   - MATLAB-side receive path: `matlab -batch "cd('/Users/willsnyder/Desktop/EyeTrack'); run('DeepLabCut/ToMatlab/receive_eye_stream_demo.m');"`
+   - CLI surface: `python3 Stream-DeepLabCut/run_matlab_eye_receive_test.py --help`
+   - live receive smoke with streamer running: `python3 Stream-DeepLabCut/run_matlab_eye_receive_test.py --duration 10`
+   - MATLAB-side receive path: `matlab -batch "cd('/Users/willsnyder/Desktop/BehaviorBox/EyeTrack'); run('Stream-DeepLabCut/receive_eye_stream_demo.m');"`
 
 7. In the handoff, report:
    - contract before and after

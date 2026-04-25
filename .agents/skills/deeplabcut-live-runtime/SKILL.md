@@ -34,7 +34,7 @@ Make live runtime changes without silently breaking capture, inference, transpor
    - display behavior
    - CSV columns or metadata JSON keys
    - default output paths under `/tmp/EyeTrack`
-   - runtime model-path resolution under `models/`
+   - runtime model-path resolution under `Models/`
 
 4. Preserve existing runtime contracts unless the task explicitly changes them.
    Keep stable by default:
@@ -45,10 +45,10 @@ Make live runtime changes without silently breaking capture, inference, transpor
 
 5. Choose the narrowest relevant validation.
    Typical checks:
-   - launcher CLI surface: `python3 DeepLabCut/ToMatlab/run_eye_stream_production.py --help`
-   - syntax-only check when imports or hardware are unavailable: `python3 -m py_compile DeepLabCut/ToMatlab/run_eye_stream_production.py`
-   - environment inventory: `python3 DeepLabCut/Tests/VerCheck.py --strict`
-   - FLIR + DLCLive timing: `python3 DeepLabCut/Tests/smoke_dlc_flir_inference.py --model-path <exported_model_dir> --model-preset yanglab-pupil8 --model-type base --camera-index 0 --sensor-roi 0 0 640 480 --frames 120`
+   - launcher CLI surface: `python3 Stream-DeepLabCut/run_eye_stream_production.py --help`
+   - syntax-only check when imports or hardware are unavailable: `python3 -m py_compile Stream-DeepLabCut/run_eye_stream_production.py`
+   - environment inventory: `python3 Cam-Tests/VerCheck.py --strict`
+   - FLIR + DLCLive timing: `python3 Cam-Tests/smoke_dlc_flir_inference.py --model-path <exported_model_dir> --model-preset yanglab-pupil8 --model-type base --camera-index 0 --sensor-roi 0 0 640 480 --frames 120`
 
 6. In the handoff, report:
    - changed runtime stage

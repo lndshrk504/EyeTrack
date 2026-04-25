@@ -7,3 +7,5 @@ __pycache__/
 
 models/*
 !models/README.md
+Models/*
+!Models/README.md
