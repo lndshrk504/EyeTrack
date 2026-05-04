@@ -60,6 +60,42 @@ deeplabcut.label_frames('/data/dlc_projects/PupilTracking-YourName-YYYY-MM-DD/co
 deeplabcut.check_labels('/data/dlc_projects/PupilTracking-YourName-YYYY-MM-DD/config.yaml')
 ```
 
+### Optional: pre-label with the bundled exported model
+
+If you only have the exported model under `Models/`, you can still use it to
+draft labels for a new DLC project. First extract frames as above. Then run the
+exported model on one extracted-frame folder:
+
+```bash
+python Train-Test-Model/validate_models_folder.py \
+  --model-path Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --image-dir /data/dlc_projects/PupilTracking-YourName-YYYY-MM-DD/labeled-data/session1 \
+  --frametype .png \
+  --output-dir /tmp/EyeTrack/prelabels/session1
+```
+
+Convert those predictions into DLC's editable `CollectedData` label file:
+
+```bash
+python Train-Test-Model/dlclive_predictions_to_dlc_labels.py \
+  --config /data/dlc_projects/PupilTracking-YourName-YYYY-MM-DD/config.yaml \
+  --image-dir session1 \
+  --predictions-csv /tmp/EyeTrack/prelabels/session1/predictions.csv
+```
+
+The converter writes:
+
+```text
+/data/dlc_projects/PupilTracking-YourName-YYYY-MM-DD/labeled-data/session1/
+  CollectedData_<scorer>.h5
+  CollectedData_<scorer>.csv
+```
+
+Open `session1` in the DLC/napari labeler, inspect every frame, drag wrong
+points onto the pupil edge, delete invisible/occluded points, and save the
+points layer. Pass `--overwrite --backup-existing` only if you intentionally
+want to replace an existing draft label file.
+
 ### 4) Create dataset
 
 ```bash
@@ -111,5 +147,6 @@ python3 Cam-Tests/smoke_dlc_flir_inference.py --model-path Models/<your-exported
 ## Notes
 
 - The default keypoint order matches the existing YangLab pupil-8 naming convention used in this repository.
+- The prelabel converter maps by exact bodypart name when possible and by keypoint order otherwise. This keeps the bundled model usable even though its `pose_cfg.yaml` has the legacy `RVupil` spelling for one point.
 - If you change keypoints/order, also update runtime `--kp-*` arguments in `Stream-DeepLabCut/dlc_eye_streamer.py` usage.
 - For best results, iteratively label failure cases from your real experiments and retrain.

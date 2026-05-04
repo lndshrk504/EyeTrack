@@ -7,6 +7,33 @@ The script runs DLC inference from your `config.yaml`, writes CSV outputs, and c
 ## Script
 
 - `run_dlc_image_test.py`
+- `validate_models_folder.py`
+
+## Validate the bundled `Models/` folder without a camera
+
+Use this on a Mac or other machine without FLIR/PySpin camera access. It loads
+the active model folder with DLCLive, runs a synthetic image smoke test, and can
+optionally run still images through the model with CSV and preview outputs.
+
+```bash
+conda run -n DLC python Train-Test-Model/validate_models_folder.py \
+  --model-path Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --output-dir /tmp/EyeTrack/model_validation
+```
+
+With real eye images:
+
+```bash
+conda run -n DLC python Train-Test-Model/validate_models_folder.py \
+  --model-path Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --image-dir /path/to/test_images \
+  --frametype .png \
+  --output-dir /tmp/EyeTrack/model_validation
+```
+
+This validates TensorFlow/DLCLive/model compatibility only. It does not test
+FLIR acquisition, PySpin, live timing, ZMQ streaming, or MATLAB receive-side
+behavior.
 
 ## Basic inference (CSV output only)
 
