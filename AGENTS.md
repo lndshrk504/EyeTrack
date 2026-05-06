@@ -1,9 +1,9 @@
 # AGENTS.md
 
 ## Repository Profile
-EyeTrack is a standalone eye-tracking repository extracted from `BehaviorBox`. The active workflow lives in `Stream-DeepLabCut/`, `Cam-Tests/`, `Train-Test-Model/`, `ssh_x11/`, `Docs/`, and `Models/`.
+EyeTrack is a standalone eye-tracking repository extracted from `BehaviorBox`. The active workflow lives in `Stream-DeepLabCut/`, `Cam-Tests/`, `Train-Test-Model/`, `ssh_x11/`, `Docs/`, and `models/`.
 
-Python owns the live capture, DLCLive inference, transport, SSH/X11 wrappers, training-image capture, and most validation entrypoints. MATLAB is limited here to receive-side bridge/demo code. Model artifacts under `Models/` are runtime inputs and are intentionally not tracked in git.
+Python owns the live capture, DLCLive inference, transport, SSH/X11 wrappers, training-image capture, and most validation entrypoints. MATLAB is limited here to receive-side bridge/demo code. Model artifacts under `models/` are runtime inputs and are intentionally not tracked in git.
 
 ## Working Agreements
 - Before editing, map the real execution path and name the files, functions, scripts, and tests involved.
@@ -46,9 +46,9 @@ Before broad edits, inspect the real equivalents in this repo rather than assumi
 - Active runtime Python: `Stream-DeepLabCut/dlc_eye_streamer.py`, `run_eye_stream_production.py`, `matlab_zmq_bridge.py`, `run_matlab_eye_receive_test.py`
 - Active MATLAB bridge/demo files: `Stream-DeepLabCut/receive_eye_stream_demo.m`, `run_eye_stream_receive_test.m`
 - Validation scripts: `Cam-Tests/VerCheck.py`, `CheckReqs.py`, `TestSpin.py`, `GSTOCV.py`, `FLIRCam.py`, `smoke_dlc_flir_inference.py`
-- Ops and workflow docs: `README.md`, `Stream-DeepLabCut/README.md`, `Docs/README_eye_stream.md`, `Cam-Tests/README.md`, `Docs/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md`, `Docs/SSH_X11_FORWARDING_POPOS.md`
+- Ops and workflow docs: `README.md`, `Stream-DeepLabCut/README.md`, `Docs/README_eye_stream.md`, `Cam-Tests/README.md`, `Docs/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md`, `Docs/SSH_X11_forwarding_PopOS.md`
 - Planning records: `.agents/PLANS.md`, `.agents/plans/`, `.agents/skills/feature-plan-records/SKILL.md`
-- Runtime model landing zone: `Models/`
+- Runtime model landing zone: `models/`
 
 For MATLAB work, also inspect any `+pkg`, `@Class`, `private/`, and startup/addpath logic before changing behavior. Do not assume a root `startup.m` configures this repo for you.
 
@@ -56,7 +56,7 @@ For MATLAB work, also inspect any `+pkg`, `@Class`, `private/`, and startup/addp
 - Python owns live capture, DLCLive inference, CSV/metadata serialization, and the ZMQ publisher. MATLAB owns receive-side behavior and MATLAB-visible record structure.
 - Do not silently change coordinate-frame semantics, crop behavior, timestamp units, field names, sample-vs-metadata split, CSV column names, sidecar keys, or default output paths.
 - Preserve the documented default ZMQ endpoint `tcp://127.0.0.1:5555` and default output directory `/tmp/EyeTrack` unless the task explicitly changes those contracts.
-- Keep model-path handling deterministic. Do not change `Models/` placement rules or commit model blobs unless explicitly asked.
+- Keep model-path handling deterministic. Do not change `models/` placement rules or commit model blobs unless explicitly asked.
 - Keep MATLAB path setup explicit. Do not add `addpath(genpath(...))` unless the repo already depends on it.
 - If MATLAB and Python disagree on shapes, dtypes, indexing, coordinate frame, or schema, stop and explain the mismatch before forcing a fix.
 - Unless the task explicitly targets another OS, treat Linux as the primary runtime target and call out any macOS- or Windows-specific validation separately.
