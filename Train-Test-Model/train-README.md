@@ -62,13 +62,13 @@ deeplabcut.check_labels('/data/dlc_projects/PupilTracking-YourName-YYYY-MM-DD/co
 
 ### Optional: pre-label with the bundled exported model
 
-If you only have the exported model under `Models/`, you can still use it to
+If you only have the exported model under `models/`, you can still use it to
 draft labels for a new DLC project. First extract frames as above. Then run the
 exported model on one extracted-frame folder:
 
 ```bash
 python Train-Test-Model/validate_models_folder.py \
-  --model-path Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --model-path models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
   --image-dir /data/dlc_projects/PupilTracking-YourName-YYYY-MM-DD/labeled-data/session1 \
   --frametype .png \
   --output-dir /tmp/EyeTrack/prelabels/session1
@@ -128,20 +128,20 @@ python Train-Test-Model/train_dlc_eye_model.py export \
   --overwrite
 ```
 
-After export, copy the exported model directory into this repository's runtime Models folder:
+After export, copy the exported model directory into this repository's runtime models folder:
 
 ```text
-Models/<your-exported-model-folder>/
+models/<your-exported-model-folder>/
 ```
 
 The runtime model layout should match the convention documented in
-`Models/README.md`; keep the exported model directory intact rather than moving
+`models/README.md`; keep the exported model directory intact rather than moving
 individual snapshot files by hand.
 
 You can then run inference with:
 
 ```bash
-python3 Cam-Tests/smoke_dlc_flir_inference.py --model-path Models/<your-exported-model-folder>
+python3 Cam-Tests/smoke_dlc_flir_inference.py --model-path models/<your-exported-model-folder>
 ```
 
 ## Notes

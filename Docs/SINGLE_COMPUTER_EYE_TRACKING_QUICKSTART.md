@@ -50,7 +50,7 @@ The computer should already have:
 - FLIR/Spinnaker installed, with the camera visible in SpinView,
 - a Python environment for the eye streamer, usually `dlclivegui`,
 - PySpin visible inside that environment,
-- the active exported model under `EyeTrack/Models/`,
+- the active exported model under `EyeTrack/models/`,
 - MATLAB installed,
 - the BehaviorBox repo containing this EyeTrack repo.
 
@@ -63,7 +63,7 @@ Expected repo layout:
   EyeTrack/
     Stream-DeepLabCut/
     Cam-Tests/
-    Models/
+    models/
 ```
 
 ## 1. Check Camera Visibility
@@ -97,7 +97,7 @@ conda activate dlclivegui
 
 ./run_eye_stream_production.py \
   --address tcp://127.0.0.1:5555 \
-  --model-path ../Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --model-path ../models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
   --model-preset yanglab-pupil8 \
   --model-type base \
   --camera-index 0 \

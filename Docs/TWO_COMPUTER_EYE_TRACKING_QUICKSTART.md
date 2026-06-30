@@ -2,7 +2,7 @@
 
 This guide sets up eye tracking on one Ubuntu computer and BehaviorBox on a second Ubuntu computer connected by one direct Ethernet cable.
 
-If you want to remove the dedicated display, mouse, and keyboard from the eye-tracking computer and use SSH/X11 forwarding instead, see [SSH_X11_FORWARDING_POPOS.md](./SSH_X11_FORWARDING_POPOS.md).
+If you want to remove the dedicated display, mouse, and keyboard from the eye-tracking computer and use SSH/X11 forwarding instead, see [SSH_X11_forwarding_PopOS.md](./SSH_X11_forwarding_PopOS.md).
 
 ## Goal
 
@@ -190,7 +190,7 @@ BehaviorBox/EyeTrack/
 It also needs the model folder, usually:
 
 ```text
-BehaviorBox/EyeTrack/Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1
+BehaviorBox/EyeTrack/models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1
 ```
 
 One way to copy from the behavior computer to the eye-tracking computer is:
@@ -318,7 +318,7 @@ conda activate dlclivegui
 
 ./run_eye_stream_production.py \
   --address tcp://10.55.0.1:5555 \
-  --model-path /home/<user>/Desktop/BehaviorBox/EyeTrack/Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --model-path /home/<user>/Desktop/BehaviorBox/EyeTrack/models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
   --model-preset yanglab-pupil8 \
   --model-type base \
   --camera-index 0 \

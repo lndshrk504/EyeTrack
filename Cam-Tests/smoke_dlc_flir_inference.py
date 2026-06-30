@@ -20,13 +20,13 @@ if str(STREAM_DIR) not in sys.path:
 
 def default_model_path() -> Path:
     eye_track_root = Path(__file__).resolve().parents[1]
-    preferred = eye_track_root / "Models" / "DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1"
+    preferred = eye_track_root / "models" / "DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1"
     if preferred.is_dir():
         return preferred
 
     model_roots = [
-        eye_track_root / "Models" / "active",
-        eye_track_root / "Models",
+        eye_track_root / "models" / "active",
+        eye_track_root / "models",
     ]
     for model_root in model_roots:
         if not model_root.is_dir():
@@ -93,6 +93,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pixel-format", default="Mono8")
     parser.add_argument("--exposure-us", type=float, default=2000.0)
     parser.add_argument("--gain-db", type=float, default=0.0)
+    parser.add_argument(
+        "--gain-auto",
+        choices=["off", "once", "continuous"],
+        default="off",
+        help="Camera GainAuto mode. If not off, manual --gain-db is ignored.",
+    )
     parser.add_argument("--frame-rate", type=float, default=None)
     parser.add_argument("--sensor-roi", type=int, nargs=4, metavar=("X", "Y", "W", "H"), default=None)
     parser.add_argument("--crop", type=int, nargs=4, metavar=("X1", "X2", "Y1", "Y2"), default=None)

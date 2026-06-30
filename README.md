@@ -24,7 +24,7 @@ Docs/
   Single-computer setup, two-computer setup, SSH/X11 workflow, stream contract,
   and training-frame capture instructions.
 
-Models/
+models/
   Local runtime model landing zone. Model blobs are intentionally ignored by git.
 ```
 
@@ -75,7 +75,7 @@ Run FLIR + DLCLive timing:
 
 ```bash
 python3 Cam-Tests/smoke_dlc_flir_inference.py \
-  --model-path Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --model-path models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
   --model-preset yanglab-pupil8 \
   --model-type base \
   --camera-index 0 \
@@ -87,8 +87,8 @@ python3 Cam-Tests/smoke_dlc_flir_inference.py \
 
 - Single-computer deployment: [Docs/SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md](Docs/SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md)
 - Two-computer deployment: [Docs/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md](Docs/TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md)
-- SSH/X11 workflow: [Docs/SSH_X11_FORWARDING_POPOS.md](Docs/SSH_X11_FORWARDING_POPOS.md)
-- FLIR training-frame capture over SSH/X11: [Docs/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md](Docs/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md)
+- SSH/X11 workflow: [Docs/SSH_X11_forwarding_PopOS.md](Docs/SSH_X11_forwarding_PopOS.md)
+- FLIR training-frame capture over SSH/X11: [Docs/Capture-FLIR-Images-Over-SSH.md](Docs/Capture-FLIR-Images-Over-SSH.md)
 - Streamer, receiver, and MATLAB receive details: [Docs/README_eye_stream.md](Docs/README_eye_stream.md)
 - Runtime scripts: [Stream-DeepLabCut/README.md](Stream-DeepLabCut/README.md)
 - Camera/environment checks: [Cam-Tests/README.md](Cam-Tests/README.md)
@@ -122,9 +122,9 @@ tools, but they are not the active production ingest path used by BehaviorBox.
 
 ## Models
 
-Active runtime models live under `Models/`.
+Active runtime models live under `models/`.
 
 - Model blobs are intentionally excluded from git history.
-- See [Models/README.md](Models/README.md) for expected active-model placement.
+- See [models/README.md](models/README.md) for expected active-model placement.
 - `Stream-DeepLabCut/run_eye_stream_production.py` defaults to the
-  `Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1` layout.
+  `models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1` layout.

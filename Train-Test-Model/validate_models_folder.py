@@ -23,7 +23,7 @@ def repo_root() -> Path:
 
 
 def default_model_path() -> Path:
-    models_root = repo_root() / "Models"
+    models_root = repo_root() / "models"
     search_roots = [models_root / "active", models_root]
 
     for model_root in search_roots:
@@ -49,7 +49,7 @@ def default_model_path() -> Path:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Validate a Models/ DLCLive model without FLIR/PySpin by running a "
+            "Validate a models/ DLCLive model without FLIR/PySpin by running a "
             "synthetic smoke test and optional still-image inference."
         )
     )
@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
         "--model-path",
         type=Path,
         default=None,
-        help="Model directory. Defaults to the single model under Models/ or Models/active/.",
+        help="Model directory. Defaults to the single model under models/ or models/active/.",
     )
     parser.add_argument(
         "--image-dir",

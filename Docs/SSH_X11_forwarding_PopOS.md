@@ -149,7 +149,7 @@ Close the preview window, or press `q` or `Esc`, when alignment is done.
 ## 2. Capture Training Frames Through X11
 
 For the focused image-capture instructions, see
-[`FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md`](./FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md).
+[`Capture-FLIR-Images-Over-SSH.md`](./Capture-FLIR-Images-Over-SSH.md).
 
 From the behavior computer:
 
@@ -188,7 +188,7 @@ cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
   --host <user>@10.55.0.1 \
   -- \
   --address tcp://10.55.0.1:5555 \
-  --model-path /home/<user>/Desktop/BehaviorBox/EyeTrack/Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --model-path /home/<user>/Desktop/BehaviorBox/EyeTrack/models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
   --model-preset yanglab-pupil8 \
   --model-type base \
   --camera-index 0 \
@@ -240,7 +240,7 @@ From the behavior computer:
   --host <user>@10.55.0.1 \
   -- \
   --address tcp://10.55.0.1:5555 \
-  --model-path /home/<user>/Desktop/BehaviorBox/EyeTrack/Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --model-path /home/<user>/Desktop/BehaviorBox/EyeTrack/models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
   --camera-index 0 \
   --sensor-roi 0 0 640 480 \
   --frame-rate 60 \

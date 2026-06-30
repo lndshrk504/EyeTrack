@@ -87,7 +87,7 @@ cd ../ssh_x11
 The forwarded preview runs on the eye-tracking computer and displays on the
 behavior computer. Saved frames are written on the eye-tracking computer under
 `~/Desktop/EyeTrackTrainingFrames/` by default.
-See `../Docs/FLIR_TRAINING_CAPTURE_OVER_SSH_X11.md` for the full step-by-step
+See `../Docs/Capture-FLIR-Images-Over-SSH.md` for the full step-by-step
 workflow.
 
 GStreamer/Aravis camera:
@@ -106,7 +106,7 @@ FLIR + DLC timing:
 
 ```bash
 python3 smoke_dlc_flir_inference.py \
-  --model-path ../Models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
+  --model-path ../models/DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1 \
   --model-preset yanglab-pupil8 \
   --model-type base \
   --camera-index 0 \

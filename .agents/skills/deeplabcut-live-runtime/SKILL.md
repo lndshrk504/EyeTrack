@@ -34,7 +34,7 @@ Make live runtime changes without silently breaking capture, inference, transpor
    - display behavior
    - CSV columns or metadata JSON keys
    - default output paths under `/tmp/EyeTrack`
-   - runtime model-path resolution under `Models/`
+   - runtime model-path resolution under `models/`
 
 4. Preserve existing runtime contracts unless the task explicitly changes them.
    Keep stable by default:

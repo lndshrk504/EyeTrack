@@ -12,7 +12,7 @@ from pathlib import Path
 DEFAULT_MODEL_PATH = (
     str(
         Path(__file__).resolve().parents[1]
-        / "Models"
+        / "models"
         / "DLC_PupilTracking_YangLab_resnet_50_iteration-0_shuffle-1"
     )
 )
