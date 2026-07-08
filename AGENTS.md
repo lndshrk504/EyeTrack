@@ -23,7 +23,7 @@ Do not use patch filenames such as `home/wbs/Desktop/...`; without the leading s
 Keep patches small and anchored on recently read context. If `apply_patch` reports "Failed to find expected lines", reread the target section and retry with a narrower hunk instead of resubmitting the same patch.
 
 ## Sub-Agent Settings
-- Use `gpt-5.4` with `xhigh` reasoning for sub-agents by default, including `explorer`, `reviewer`, `worker`, and any generic/default sub-agent.
+- Use `gpt-5.5` with `xhigh` reasoning for sub-agents by default, including `explorer`, `reviewer`, `worker`, and any generic/default sub-agent.
 
 ## Mandatory Skill Usage
 - Use `$feature-plan-records` when the user asks for a plan, when proposing or refining a new feature or nontrivial behavior change, or when implementing a plan-backed change. Skill path: `.agents/skills/feature-plan-records/SKILL.md`
