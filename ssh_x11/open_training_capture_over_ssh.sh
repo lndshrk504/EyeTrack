@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=ssh_x11_common.sh
+source "$SCRIPT_DIR/ssh_x11_common.sh"
+
 HOST=""
 REMOTE_REPO='~/Desktop/BehaviorBox/EyeTrack'
 CONDA_SH='~/miniforge3/etc/profile.d/conda.sh'
@@ -36,18 +40,22 @@ require_display() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --host)
+      ssh_x11_require_option_value "$1" "$#"
       HOST="$2"
       shift 2
       ;;
     --remote-repo)
+      ssh_x11_require_option_value "$1" "$#"
       REMOTE_REPO="$2"
       shift 2
       ;;
     --conda-sh)
+      ssh_x11_require_option_value "$1" "$#"
       CONDA_SH="$2"
       shift 2
       ;;
     --conda-env)
+      ssh_x11_require_option_value "$1" "$#"
       CONDA_ENV="$2"
       shift 2
       ;;
@@ -85,7 +93,9 @@ echo "Remote repo: ${REMOTE_REPO}"
 echo "Remote conda env: ${CONDA_ENV}"
 echo "Remote default output: ~/Desktop/EyeTrackTrainingFrames"
 
-ssh -Y "$HOST" bash -s -- "$REMOTE_REPO" "$CONDA_SH" "$CONDA_ENV" "${EXTRA_ARGS[@]}" <<'REMOTE'
+ssh_x11_build_remote_command \
+  bash -s -- "$REMOTE_REPO" "$CONDA_SH" "$CONDA_ENV" "${EXTRA_ARGS[@]}"
+ssh -Y "$HOST" "$SSH_X11_REMOTE_COMMAND" <<'REMOTE'
 set -euo pipefail
 
 repo_root="$1"
@@ -100,7 +110,7 @@ expand_path() {
       printf '%s\n' "$HOME"
       ;;
     "~/"*)
-      printf '%s/%s\n' "$HOME" "${raw#~/}"
+      printf '%s/%s\n' "$HOME" "${raw#\~/}"
       ;;
     "\${HOME}"*)
       printf '%s%s\n' "$HOME" "${raw#\$\{HOME\}}"

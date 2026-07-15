@@ -308,6 +308,53 @@ or, if you choose to reuse the full environment:
 /home/<user>/miniforge3/envs/dlclivegui/bin/python
 ```
 
+## Recommended One-Command Production Workflow
+
+After the one-time network, environment, model, camera, and SSH/X11 setup is
+complete, MATLAB and BehaviorBox may be opened first while the mouse warms up.
+When you are ready to begin eye tracking, run this from a terminal on the
+behavior computer:
+
+```bash
+cd /home/<user>/Desktop/BehaviorBox/EyeTrack
+./run_two_computer_eye_tracking.sh
+```
+
+For the validated lab profile, this command:
+
+1. verifies the behavior-host route, local receiver Python, SSH/X11 forwarding,
+   remote environment, model, camera, and free ports;
+2. starts `start_eye_stream_over_ssh.sh` with the production overlay forwarded
+   to the behavior computer at `--display-fps 5`;
+3. starts the local deferred receiver and waits for at least one stream sample;
+4. reports the endpoint values that MATLAB should contain; and
+5. supervises the receiver and streamer until you press `Ctrl+C` after the
+   BehaviorBox session has ended and finished saving.
+
+The production command never starts or stops MATLAB or BehaviorBox. The parent
+BehaviorBox `startup.m` supplies the normal two-computer endpoint defaults when
+MATLAB starts from the BehaviorBox project. The explicit `--transport-test` and
+`--full-test` diagnostic modes are the only supervisor modes that start a
+temporary MATLAB process.
+
+The supervisor refuses to reuse or stop a pre-existing streamer, receiver, or
+unrelated listener. Stop manually launched EyeTrack services before using it.
+Closing the forwarded production overlay, or losing its X11 SSH connection,
+may stop the streamer. The supervisor reports that loss in the live terminal.
+
+Useful modes:
+
+```bash
+./run_two_computer_eye_tracking.sh --check-only
+./run_two_computer_eye_tracking.sh --transport-test
+./run_two_computer_eye_tracking.sh --full-test
+```
+
+Do not use a MATLAB smoke-test mode during an active behavior session.
+
+The numbered sections below remain the manual multi-terminal fallback and the
+component-level troubleshooting reference.
+
 ## 5. Start the Eye Stream on the Eye-Tracking Computer
 
 Run this on the eye-tracking computer:
@@ -328,7 +375,7 @@ conda activate dlclivegui
   --gain-auto continuous \
   --display \
   --display-scale 0.75 \
-  --display-fps 20
+  --display-fps 5
 ```
 
 Important:
@@ -388,39 +435,69 @@ MATLAB_EYE_STREAM_RECEIVE_OK
 You should also see:
 
 - nonzero sample count
-- `Ready: 1` once a valid or partial-points sample arrives
-- `CSV path advertised by streamer`
-- `Metadata path advertised by streamer`
+- at least one valid sample for the default full test
+- receiver chunk CSV and metadata paths
+- streamer CSV and metadata paths from `StreamMetadata`
 
-If there is no mouse eye in view, samples may have `sample_status=no_points`. That is still useful for testing transport, but readiness requires a valid JSON sample with expected point names and status `ok` or `partial_points`.
+If there is no mouse eye in view, samples may have
+`sample_status=no_points`. The full test then fails by design. For an explicit
+transport-only check, add `--transport-only`; that mode prints
+`MATLAB_EYE_STREAM_TRANSPORT_OK` instead of the full receive marker.
 
 ## 8. Run BehaviorBox
 
-If the receiver is using the default local API URL `http://127.0.0.1:8765`, MATLAB does not need extra environment variables. If you changed the receiver API URL, set `BB_EYETRACK_RECEIVER_URL` before starting MATLAB.
+The parent BehaviorBox `startup.m` sets both the remote ZMQ source address and
+the local receiver API URL when they are empty. BehaviorBox communicates
+through the local HTTP API, while `BB_EYETRACK_ZMQ_ADDRESS` preserves the
+actual eye-computer endpoint in saved provenance. Existing environment values
+are left unchanged so intentional alternate configurations still work.
 
-Default case:
+Default two-computer case:
 
 ```bash
 cd /path/to/BehaviorBox
-matlab
+matlab -nosplash -nodesktop -r "BehaviorBox_App Wheel"
 ```
+
+Starting from the BehaviorBox root makes its project `startup.m` discoverable.
+Inside MATLAB, the expected defaults are:
+
+```matlab
+getenv("BB_EYETRACK_ZMQ_ADDRESS")
+getenv("BB_EYETRACK_RECEIVER_URL")
+```
+
+They should report `tcp://10.55.0.1:5555` and
+`http://127.0.0.1:8765`, respectively.
 
 Non-default receiver URL:
 
 ```bash
+export BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555
 export BB_EYETRACK_RECEIVER_URL=http://127.0.0.1:9000
 cd /path/to/BehaviorBox
-matlab
+matlab -nosplash -nodesktop -r "BehaviorBox_App Wheel"
 ```
+
+You may also apply a non-default value inside an already-running MATLAB before
+the BehaviorBox session starts:
+
+```matlab
+setenv("BB_EYETRACK_ZMQ_ADDRESS", "tcp://10.55.0.1:5555")
+setenv("BB_EYETRACK_RECEIVER_URL", "http://127.0.0.1:9000")
+```
+
+The one-command EyeTrack supervisor does not execute MATLAB. MATLAB remains
+attached to the terminal where you started it and stays under operator control.
 
 Recommended startup order:
 
-1. Start the eye streamer on the eye-tracking computer.
-2. Start the deferred receiver on the behavior computer.
-3. Confirm MATLAB can import samples with `run_matlab_eye_receive_test.py`.
-4. Start MATLAB on the behavior computer.
-5. Start BehaviorBox.
-6. Run behavior training or mapping animations.
+1. Start MATLAB/BehaviorBox on the behavior computer and allow the mouse to
+   warm up. Do not start a BehaviorBox session yet.
+2. Run `./run_two_computer_eye_tracking.sh` on the behavior computer.
+3. Wait for `Eye tracking is ready.`
+4. Optionally confirm the receiver through `BehaviorBoxEyeTrack.discoverSource()`.
+5. Start the BehaviorBox training or mapping session in the existing MATLAB.
 
 BehaviorBox now talks to the local receiver service, not directly to the remote ZMQ stream. If it cannot connect to the receiver, it should issue a visible MATLAB warning and continue the session without blocking.
 
@@ -438,11 +515,13 @@ Saved behavior files should include, when data is available:
 Recommended order:
 
 1. Stop the BehaviorBox session and let it save.
-2. Wait for the MATLAB save to complete.
-3. Stop the deferred receiver on the behavior computer with `Ctrl+C`.
-4. Stop the Python eye streamer on the eye-tracking computer with `Ctrl+C`.
+2. Wait for the MATLAB save and eye-chunk import to complete.
+3. In the EyeTrack supervisor terminal, press `Ctrl+C`.
+4. Leave MATLAB open or close it independently as desired.
 
-BehaviorBox finalizes/imports eye chunks during save, but it does not stop either external Python process for you.
+BehaviorBox finalizes/imports eye chunks during save. The supervisor stops its
+receiver and remote streamer together when you press `Ctrl+C`; MATLAB exit is
+not part of that lifecycle.
 
 ## 10. Troubleshooting
 
@@ -472,10 +551,11 @@ ps -ef | grep run_eye_receiver_service.py
 ss -ltnp | grep 8765
 ```
 
-If you are using a non-default receiver URL, confirm:
+Confirm the BehaviorBox `startup.m` supplied both addresses inside MATLAB:
 
-```bash
-echo "$BB_EYETRACK_RECEIVER_URL"
+```matlab
+getenv("BB_EYETRACK_ZMQ_ADDRESS")
+getenv("BB_EYETRACK_RECEIVER_URL")
 ```
 
 The default is:
@@ -585,27 +665,48 @@ TensorFlow should create a GPU device in the streamer output if it sees the NVID
 
 ## 11. Minimal Command Summary
 
+Recommended behavior-computer command:
+
+```bash
+cd /home/<user>/Desktop/BehaviorBox/EyeTrack
+./run_two_computer_eye_tracking.sh
+```
+
+That command replaces the manual terminal sequence below for normal operation.
+
+### Manual fallback
+
 Eye-tracking computer:
 
 ```bash
 cd /home/<user>/Desktop/BehaviorBox/EyeTrack/Stream-DeepLabCut
 conda activate dlclivegui
 python3 check_pyspin_camera.py
-./run_eye_stream_production.py --address tcp://10.55.0.1:5555 --frame-rate 60 --exposure-us 6000 --gain-auto continuous --display-fps 20
+./run_eye_stream_production.py --address tcp://10.55.0.1:5555 --frame-rate 60 --exposure-us 6000 --gain-auto continuous --display-fps 5
 ```
 
-Behavior computer:
+Behavior computer, terminal A (keep the receiver running):
 
 ```bash
 cd /path/to/BehaviorBox/EyeTrack/Stream-DeepLabCut
 conda activate bbeyezmq
 ./run_eye_receiver_service.py --address tcp://10.55.0.1:5555 --api-port 8765
+```
+
+Behavior computer, terminal B (smoke test while terminal A is running):
+
+```bash
+cd /path/to/BehaviorBox/EyeTrack/Stream-DeepLabCut
+conda activate bbeyezmq
 ./run_matlab_eye_receive_test.py --address tcp://10.55.0.1:5555 --receiver-url http://127.0.0.1:8765 --duration 10
 ```
 
-Then start MATLAB from the same terminal:
+Behavior computer, terminal C (MATLAB/BehaviorBox):
 
 ```bash
 cd /path/to/BehaviorBox
-matlab
+matlab -nosplash -nodesktop -r "BehaviorBox_App Wheel"
 ```
+
+Terminal C may be started before terminals A and B for mouse warm-up. Do not
+begin the BehaviorBox session until the streamer and receiver are ready.

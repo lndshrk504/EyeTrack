@@ -14,12 +14,14 @@ The production path is:
 
 BehaviorBox aligns eye data on `t_receive_us` in v1. Remote capture and publish timestamps are still preserved in the raw imported tables and metadata.
 
-Recommended startup order:
+Recommended two-computer operating order:
 
-1. Start the Python streamer on the eye-tracking computer.
-2. Start `run_eye_receiver_service.py` on the behavior computer.
-3. Run `run_matlab_eye_receive_test.py` against the receiver.
-4. Start MATLAB and BehaviorBox.
+1. Start MATLAB/BehaviorBox while the mouse warms up, but do not begin a
+   BehaviorBox session.
+2. Start the Python streamer and `run_eye_receiver_service.py` through the
+   root `run_two_computer_eye_tracking.sh` supervisor.
+3. Wait for receiver readiness, then begin the BehaviorBox session.
+4. After the session saves, press `Ctrl+C` in the supervisor terminal.
 
 For a one-computer setup, both the streamer and receiver stay on localhost.
 See [SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md](./SINGLE_COMPUTER_EYE_TRACKING_QUICKSTART.md).
@@ -30,7 +32,8 @@ See [TWO_COMPUTER_EYE_TRACKING_QUICKSTART.md](./TWO_COMPUTER_EYE_TRACKING_QUICKS
 
 ## Deferred Receiver
 
-Run the external receiver on the behavior computer before starting BehaviorBox:
+Run the external receiver on the behavior computer before beginning a
+BehaviorBox session:
 
 ```bash
 cd /path/to/BehaviorBox/EyeTrack/Stream-DeepLabCut
@@ -41,7 +44,13 @@ cd /path/to/BehaviorBox/EyeTrack/Stream-DeepLabCut
 
 The receiver subscribes to the existing ZeroMQ eye stream, stamps samples with behavior-computer receive time, writes per-segment chunk CSVs, and exposes a localhost HTTP API that MATLAB uses to register sessions and import finalized chunks.
 
-If the receiver is running on the same behavior computer as MATLAB and uses the default API URL, BehaviorBox does not need extra environment variables. If you bind the API somewhere else, set `BB_EYETRACK_RECEIVER_URL` before starting MATLAB.
+The BehaviorBox project `startup.m` supplies the normal two-computer defaults
+`BB_EYETRACK_ZMQ_ADDRESS=tcp://10.55.0.1:5555` and
+`BB_EYETRACK_RECEIVER_URL=http://127.0.0.1:8765` when those variables are empty.
+For a single-computer setup, explicitly set the ZMQ address to
+`tcp://127.0.0.1:5555` before MATLAB starts, or use MATLAB `setenv` before the
+BehaviorBox session begins. If the HTTP API is nondefault, override
+`BB_EYETRACK_RECEIVER_URL` as well.
 
 ## Production Streamer
 
@@ -71,7 +80,16 @@ The launcher writes outputs under `/tmp/EyeTrack` by default:
 
 The CSV intentionally omits static session fields that would be identical on every row. Those fields are saved in the paired metadata JSON instead.
 
-The MATLAB `EyeTrackingRecord` follows the same rule: it keeps one row per DLC output sample with dynamic values and point columns. Static stream details are stored in `EyeTrackingMeta`, especially `EyeTrackingMeta.StreamMetadata`, `EyeTrackingMeta.CsvPath`, and `EyeTrackingMeta.MetadataPath`.
+The MATLAB `EyeTrackingRecord` follows the same rule: it keeps one row per DLC
+output sample with dynamic values and point columns. Static streamer details are
+stored in `EyeTrackingMeta.StreamMetadata`.
+
+The path fields have distinct owners:
+
+- `EyeTrackingMeta.StreamMetadata.csv_path` and `.metadata_path` are the
+  streamer files on the eye-tracking computer, normally under `/tmp/EyeTrack`.
+- `EyeTrackingMeta.CsvPath` and `.MetadataPath` are receiver-managed segment
+  chunk files on the behavior computer.
 
 The ZMQ stream follows the same split. Sample messages contain dynamic frame output and point values. Metadata messages are sent at startup and then periodically, controlled by `--metadata-interval-s`.
 
@@ -88,14 +106,21 @@ The per-sample CSV contains changing DLC output values:
 
 ## Metadata Sidecar
 
-The paired metadata JSON contains static/session information:
+The paired streamer metadata JSON contains static/session information:
 
 - model path, model type, model preset, point names, keypoint mapping
 - camera model, serial, sensor ROI, crop, coordinate frame
-- requested exposure, gain, frame rate, gain auto mode
+- requested and applied exposure, gain, frame rate, gain-auto, pixel-format,
+  sensor-ROI, buffer-count, and camera settings
 - ZMQ address, CSV path, metadata path
 - display and dynamic crop settings
 - the exact CSV column names
+
+Periodic ZMQ metadata carries the same static runtime provenance except the
+sidecar-only CSV column list. The deferred receiver exposes the current flat
+snapshot as `stream_metadata` in its health response and persists it at the top
+level of `receiver_session.json`. Later periodic metadata refreshes that saved
+session snapshot.
 
 ## MATLAB Receive Test
 
@@ -111,6 +136,21 @@ A successful test prints:
 ```text
 MATLAB_EYE_STREAM_RECEIVE_OK
 ```
+
+The full test requires at least `--min-samples` total rows and
+`--min-valid-samples` valid eye rows; the valid minimum defaults to `1`. To
+diagnose transport intentionally without an eye in frame, run:
+
+```bash
+./run_matlab_eye_receive_test.py \
+  --duration 10 \
+  --receiver-url http://127.0.0.1:8765 \
+  --transport-only
+```
+
+That mode prints `MATLAB_EYE_STREAM_TRANSPORT_OK` and does not print the full
+receive marker. If EyeTrack is not located directly under the BehaviorBox
+repository, pass `--behaviorbox-root /path/to/BehaviorBox` explicitly.
 
 ## Legacy Helpers
 

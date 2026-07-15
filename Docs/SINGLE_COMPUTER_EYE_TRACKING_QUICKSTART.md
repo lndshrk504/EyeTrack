@@ -165,26 +165,31 @@ Expected successful ending:
 MATLAB_EYE_STREAM_RECEIVE_OK
 ```
 
-If no eye is visible, transport can still work while readiness remains false or
-samples report `no_points`. Put the eye in frame before using the result as a
-full behavior-session smoke test.
+The full test requires at least one valid eye sample by default. If the stream
+contains only `sample_status=no_points`, it fails instead of printing the full
+success marker. To test only the local ZMQ, receiver, and MATLAB import path,
+rerun the same command with `--transport-only`; transport-only success prints
+`MATLAB_EYE_STREAM_TRANSPORT_OK`.
 
 ## 5. Start MATLAB And BehaviorBox
 
 Open terminal 3:
 
 ```bash
+export BB_EYETRACK_ZMQ_ADDRESS=tcp://127.0.0.1:5555
 cd ~/Desktop/BehaviorBox
 matlab
 ```
 
-If the receiver uses the default URL `http://127.0.0.1:8765`, no extra
-environment variable is needed. `BehaviorBoxEyeTrack.m` defaults to that local
-receiver URL.
+The BehaviorBox project `startup.m` normally supplies the two-computer ZMQ
+address when it is empty. The explicit localhost value above is therefore
+required for a single-computer run and is preserved by `startup.m`. The default
+receiver URL remains `http://127.0.0.1:8765`.
 
 If you changed the receiver API port, set this before starting MATLAB:
 
 ```bash
+export BB_EYETRACK_ZMQ_ADDRESS=tcp://127.0.0.1:5555
 export BB_EYETRACK_RECEIVER_URL=http://127.0.0.1:9000
 cd ~/Desktop/BehaviorBox
 matlab
@@ -234,10 +239,12 @@ curl http://127.0.0.1:8765/health
 curl http://127.0.0.1:8765/status
 ```
 
-If you changed the receiver URL, confirm MATLAB inherited it:
+Confirm MATLAB has the single-computer ZMQ address and, if changed, the receiver
+URL:
 
-```bash
-echo "$BB_EYETRACK_RECEIVER_URL"
+```matlab
+getenv("BB_EYETRACK_ZMQ_ADDRESS")
+getenv("BB_EYETRACK_RECEIVER_URL")
 ```
 
 ### Receiver Gets Zero Samples
@@ -306,6 +313,7 @@ conda activate bbeyezmq
 Terminal 3, MATLAB:
 
 ```bash
+export BB_EYETRACK_ZMQ_ADDRESS=tcp://127.0.0.1:5555
 cd ~/Desktop/BehaviorBox
 matlab
 ```

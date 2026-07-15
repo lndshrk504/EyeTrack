@@ -15,6 +15,22 @@ This folder contains the active eye-stream boundary between the eye-tracking com
 
 ## Common commands
 
+From the EyeTrack repository root on the behavior computer, the recommended
+two-computer command is:
+
+```bash
+./run_two_computer_eye_tracking.sh
+```
+
+It supervises the remote streamer and local receiver until `Ctrl+C`; it does
+not start or stop MATLAB or BehaviorBox. Start MATLAB independently during
+mouse warm-up, run this command when eye tracking should begin, and start the
+BehaviorBox session only after readiness is reported. End and save that session
+before pressing `Ctrl+C`. The SSH production overlay is enabled at 5 display
+FPS. Use `./run_two_computer_eye_tracking.sh --check-only` for non-starting
+preflight checks. The explicit `--transport-test` and `--full-test` diagnostic
+modes are the only modes that start a temporary MATLAB process.
+
 Start production stream on the eye-tracking computer (defaults shown):
 
 ```bash
@@ -41,6 +57,12 @@ Run the MATLAB receive smoke test against the same receiver:
   --receiver-url http://127.0.0.1:8765 \
   --duration 10
 ```
+
+The full test requires at least one valid eye sample by default and prints
+`MATLAB_EYE_STREAM_RECEIVE_OK`. Use `--transport-only` for an intentional
+no-eye connectivity check; that mode prints `MATLAB_EYE_STREAM_TRANSPORT_OK`.
+Use `--behaviorbox-root PATH` when EyeTrack is not directly under the
+BehaviorBox repository.
 
 The active runtime is:
 

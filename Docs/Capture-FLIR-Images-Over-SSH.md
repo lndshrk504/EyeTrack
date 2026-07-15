@@ -116,7 +116,7 @@ Use a different remote output root:
 ./open_training_capture_over_ssh.sh \
   --host <user>@10.55.0.1 \
   -- \
-  --output-dir ~/Desktop/EyeTrackTrainingFrames \
+  --output-dir '~/Desktop/EyeTrackTrainingFrames' \
   --auto-contrast \
   --scale 0.5
 ```
@@ -135,8 +135,9 @@ python3 capture_flir_training_frames.py \
   --no-preview
 ```
 
-Headless capture is better for long timed collections because an X11 disconnect
-cannot close the OpenCV preview window.
+Headless capture removes the OpenCV/X11 window dependency, but this foreground
+command is still attached to its SSH session. Keep that SSH connection open or
+run it under an existing process supervisor for a long unattended collection.
 
 ## Verify The Output
 

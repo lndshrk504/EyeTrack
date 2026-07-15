@@ -5,6 +5,10 @@ Standalone eye-tracking repo extracted from `BehaviorBox`.
 ## Current Layout
 
 ```text
+run_two_computer_eye_tracking.sh
+  One-command two-computer production supervisor for the remote streamer,
+  local receiver, readiness checks, and coordinated shutdown.
+
 Stream-DeepLabCut/
   Live FLIR capture, DLCLive inference, ZeroMQ publishing, deferred receiver,
   and MATLAB-side receive helpers.
@@ -33,7 +37,27 @@ flattened into the folders above.
 
 ## Quick Starts
 
-Start the production eye stream:
+Start the complete two-computer production workflow from the behavior computer:
+
+```bash
+./run_two_computer_eye_tracking.sh
+```
+
+This checks the two-host environment, starts the remote X11-forwarded overlay
+at 5 display FPS, starts the local receiver, waits for samples, and supervises
+both services until `Ctrl+C`. It never starts or stops MATLAB or BehaviorBox;
+start MATLAB independently during mouse warm-up, then begin the BehaviorBox
+session after this command reports that eye tracking is ready. End and save the
+BehaviorBox session before pressing `Ctrl+C`. Existing listeners or EyeTrack
+processes are rejected rather than adopted or stopped.
+
+Run only the safe preflight with:
+
+```bash
+./run_two_computer_eye_tracking.sh --check-only
+```
+
+Start only the low-level production eye stream on the eye computer:
 
 ```bash
 cd Stream-DeepLabCut
