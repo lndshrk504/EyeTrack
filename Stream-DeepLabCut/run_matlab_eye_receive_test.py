@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -28,6 +29,11 @@ def parse_args() -> argparse.Namespace:
         help="Local HTTP URL for the deferred eye receiver service.",
     )
     parser.add_argument(
+        "--behaviorbox-root",
+        default="",
+        help="BehaviorBox repository root. Default: parent of the EyeTrack repository.",
+    )
+    parser.add_argument(
         "--duration",
         type=float,
         default=10.0,
@@ -38,6 +44,17 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=5,
         help="Minimum MATLAB sample count required for the test to pass.",
+    )
+    parser.add_argument(
+        "--min-valid-samples",
+        type=int,
+        default=1,
+        help="Minimum internally consistent valid-eye sample count required for a full pass.",
+    )
+    parser.add_argument(
+        "--transport-only",
+        action="store_true",
+        help="Test receiver transport without requiring a valid eye detection.",
     )
     parser.add_argument(
         "--output-mat",
@@ -54,7 +71,18 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.min_samples < 0 or args.min_valid_samples < 0:
+        print("--min-samples and --min-valid-samples must be nonnegative.", file=sys.stderr)
+        return 2
+    if not args.transport_only and args.min_valid_samples < 1:
+        print("--min-valid-samples must be at least 1 for the full receive test.", file=sys.stderr)
+        return 2
     here = Path(__file__).resolve().parent
+    behaviorbox_root = (
+        Path(args.behaviorbox_root).expanduser().resolve()
+        if args.behaviorbox_root
+        else here.parent.parent
+    )
     output_mat = args.output_mat
     if not output_mat:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -64,21 +92,28 @@ def main() -> int:
     env["BB_EYETRACK_RECEIVER_URL"] = args.receiver_url
 
     matlab_code = (
-        f"addpath({_matlab_string(here)}); "
+        f"restoredefaultpath; addpath({_matlab_string(here)}); "
         "run_eye_stream_receive_test("
         f"'Address', {_matlab_string(args.address)}, "
         f"'ReceiverUrl', {_matlab_string(args.receiver_url)}, "
+        f"'BehaviorBoxRoot', {_matlab_string(behaviorbox_root)}, "
         f"'DurationSeconds', {args.duration:.6g}, "
         f"'MinSamples', {int(args.min_samples)}, "
+        f"'MinValidSamples', {int(args.min_valid_samples)}, "
+        f"'TransportOnly', {'true' if args.transport_only else 'false'}, "
         f"'OutputMat', {_matlab_string(output_mat)}"
         ");"
     )
 
     command = [args.matlab_bin, "-batch", matlab_code]
     print("Running MATLAB eye-stream receive test", flush=True)
+    print(f"BehaviorBox root: {behaviorbox_root}", flush=True)
     print(f"Address: {args.address}", flush=True)
     print(f"Receiver URL: {args.receiver_url}", flush=True)
     print(f"Duration: {args.duration:.1f} seconds", flush=True)
+    print(f"Minimum samples: {args.min_samples}", flush=True)
+    print(f"Minimum valid samples: {args.min_valid_samples}", flush=True)
+    print(f"Transport only: {args.transport_only}", flush=True)
     print(f"Output MAT: {output_mat}", flush=True)
     print(f"MATLAB executable: {args.matlab_bin}", flush=True)
     return subprocess.run(command, cwd=here, env=env, check=False).returncode

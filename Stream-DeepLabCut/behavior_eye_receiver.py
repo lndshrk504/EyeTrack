@@ -5,6 +5,7 @@ import csv
 import json
 import threading
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,6 +26,30 @@ DEFAULT_POINT_NAMES = [
     "Vpupil",
     "VLpupil",
 ]
+
+NON_STATIC_METADATA_FIELDS = {
+    "message_type",
+    "created_time_unix_s",
+    "created_time_unix_ns",
+    "sample_status",
+    "frame_id",
+    "capture_time_unix_s",
+    "capture_time_unix_ns",
+    "publish_time_unix_s",
+    "publish_time_unix_ns",
+    "camera_fps",
+    "inference_fps",
+    "latency_ms",
+    "center_x",
+    "center_y",
+    "diameter_px",
+    "diameter_h_px",
+    "diameter_v_px",
+    "confidence_mean",
+    "valid_points",
+    "is_valid",
+    "points",
+}
 
 
 def _safe_float(value: Any) -> float:
@@ -222,6 +247,7 @@ class SessionState:
     model_name: str
     point_names: list[str]
     metadata: dict[str, Any] = field(default_factory=dict)
+    stream_metadata: dict[str, Any] = field(default_factory=dict)
     manifest: list[dict[str, Any]] = field(default_factory=list)
     active_segment: Optional[SegmentWriter] = None
 
@@ -244,6 +270,7 @@ class SessionState:
             "model_name": self.model_name,
             "point_names": list(self.point_names),
             "metadata": self.metadata,
+            "stream_metadata": self.stream_metadata,
         }
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.session_metadata_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -330,9 +357,9 @@ class ReceiverState:
         with self._lock:
             self.messages_received += 1
             self.last_sample_receive_unix_ns = receive_unix_ns
-            self._update_metadata(payload)
             if message_type == "metadata":
                 self.metadata_messages_received += 1
+                self._update_metadata(payload)
                 return
             self.samples_received += 1
             self._update_frame_gap(payload.get("frame_id"))
@@ -342,26 +369,23 @@ class ReceiverState:
             session.active_segment.write_sample(payload, receive_unix_ns)
 
     def _update_metadata(self, payload: dict[str, Any]) -> None:
-        point_names = payload.get("point_names")
+        stream_metadata = {
+            field_name: deepcopy(value)
+            for field_name, value in payload.items()
+            if field_name not in NON_STATIC_METADATA_FIELDS
+        }
+        point_names = stream_metadata.get("point_names")
         if isinstance(point_names, list) and point_names:
             self.point_names = [_safe_string(value) for value in point_names]
-        model_name = payload.get("model_preset") or payload.get("model_name")
+        model_name = stream_metadata.get("model_preset") or stream_metadata.get("model_name")
         if model_name:
             self.model_name = _safe_string(model_name)
-        for field_name in (
-            "schema_version",
-            "source",
-            "address",
-            "model_preset",
-            "model_type",
-            "point_names",
-            "point_count",
-            "camera_model",
-            "camera_serial",
-            "pose_coordinate_frame",
-        ):
-            if field_name in payload:
-                self.stream_metadata[field_name] = payload[field_name]
+        if stream_metadata == self.stream_metadata:
+            return
+        self.stream_metadata = stream_metadata
+        if self.current_session is not None:
+            self.current_session.stream_metadata = deepcopy(stream_metadata)
+            self.current_session.write_metadata()
 
     def _update_frame_gap(self, frame_id_value: Any) -> None:
         try:
@@ -394,7 +418,7 @@ class ReceiverState:
                 "active_segment_id": None
                 if self.current_session is None or self.current_session.active_segment is None
                 else self.current_session.active_segment.segment_id,
-                "stream_metadata": dict(self.stream_metadata),
+                "stream_metadata": deepcopy(self.stream_metadata),
             }
 
     def debug_ingest(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -423,6 +447,7 @@ class ReceiverState:
                 model_name=_safe_string(payload.get("model_name") or self.model_name),
                 point_names=list(payload.get("point_names") or self.point_names or DEFAULT_POINT_NAMES),
                 metadata=dict(payload.get("metadata") or {}),
+                stream_metadata=deepcopy(self.stream_metadata),
             )
             if self.current_session is not None and self.current_session.session_id != session_id:
                 self._finalize_current_session_locked(partial=True)

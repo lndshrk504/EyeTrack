@@ -228,12 +228,15 @@ write_receiver_env_file() {
     if [[ "$APPLY" -eq 1 ]]; then
         cat > "$env_file" <<EOF
 #!/usr/bin/env bash
-# Source this file on the behavior computer before starting the receiver
-# service or MATLAB.
+# Source this file separately in each behavior-computer terminal that starts
+# the receiver service, receive smoke test, or MATLAB.
 #
-# Usage:
+# Receiver terminal:
 #   source "$env_file"
 #   "\$BB_EYETRACK_RECEIVER_PYTHON" "$SCRIPT_DIR/run_eye_receiver_service.py"
+#
+# MATLAB terminal:
+#   source "$env_file"
 #   cd /home/wbs/Desktop/BehaviorBox
 #   matlab
 
@@ -331,8 +334,11 @@ configure_nmcli() {
     if [[ "$ROLE" == "sender" ]]; then
         info "  ss -ltnp | grep $PORT    # after starting run_eye_stream_production.py"
     else
+        info "  # terminal A"
         info "  source ./behavior_eye_tracking_env.sh"
         info "  \"\$BB_EYETRACK_RECEIVER_PYTHON\" ./run_eye_receiver_service.py --address \"\$BB_EYETRACK_ZMQ_ADDRESS\" --api-port ${RECEIVER_API_PORT}"
+        info "  # terminal B"
+        info "  source ./behavior_eye_tracking_env.sh"
         info "  ./run_matlab_eye_receive_test.py --address \"\$BB_EYETRACK_ZMQ_ADDRESS\" --receiver-url \"\$BB_EYETRACK_RECEIVER_URL\" --duration 10"
     fi
 }
@@ -369,26 +375,28 @@ print_next_steps() {
 EOF
     else
         cat <<EOF
-1. Source the generated environment helper:
+1. In terminal A, source the generated environment helper:
 
    source "$SCRIPT_DIR/behavior_eye_tracking_env.sh"
 
-2. Start the deferred receiver while the sender streamer is running:
+2. In terminal A, start the deferred receiver and leave it running:
 
    "\$BB_EYETRACK_RECEIVER_PYTHON" "$SCRIPT_DIR/run_eye_receiver_service.py" \\
      --address "\$BB_EYETRACK_ZMQ_ADDRESS" \\
      --api-port ${RECEIVER_API_PORT}
 
-3. Test MATLAB receive:
+3. In terminal B, source the helper and test MATLAB receive:
 
    cd "$SCRIPT_DIR"
+   source ./behavior_eye_tracking_env.sh
    ./run_matlab_eye_receive_test.py \\
      --address "\$BB_EYETRACK_ZMQ_ADDRESS" \\
      --receiver-url "\$BB_EYETRACK_RECEIVER_URL" \\
      --duration 10
 
-4. Start MATLAB from the same terminal:
+4. In terminal C, source the helper and start MATLAB:
 
+   source "$SCRIPT_DIR/behavior_eye_tracking_env.sh"
    cd /home/wbs/Desktop/BehaviorBox
    matlab
 

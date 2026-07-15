@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=ssh_x11_common.sh
+source "$SCRIPT_DIR/ssh_x11_common.sh"
+
 HOST=""
 TRY_XCLOCK=0
 
@@ -27,6 +31,7 @@ require_display() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --host)
+      ssh_x11_require_option_value "$1" "$#"
       HOST="$2"
       shift 2
       ;;
@@ -57,7 +62,8 @@ require_display
 echo "Local DISPLAY: ${DISPLAY}"
 echo "Testing SSH/X11 forwarding to ${HOST}..."
 
-ssh -Y "$HOST" bash -s -- "$TRY_XCLOCK" <<'REMOTE'
+ssh_x11_build_remote_command bash -s -- "$TRY_XCLOCK"
+ssh -Y "$HOST" "$SSH_X11_REMOTE_COMMAND" <<'REMOTE'
 set -euo pipefail
 
 try_xclock="$1"
@@ -73,6 +79,26 @@ if ! command -v xauth >/dev/null 2>&1; then
   exit 1
 fi
 echo "xauth: $(command -v xauth)"
+
+if command -v xdpyinfo >/dev/null 2>&1; then
+  echo "Opening the forwarded display with xdpyinfo..."
+  if ! xdpyinfo >/dev/null 2>&1; then
+    echo "xdpyinfo could not open the forwarded display." >&2
+    exit 1
+  fi
+  echo "X11 probe: xdpyinfo succeeded."
+elif command -v xset >/dev/null 2>&1; then
+  echo "Opening the forwarded display with xset q..."
+  if ! xset q >/dev/null 2>&1; then
+    echo "xset could not open the forwarded display." >&2
+    exit 1
+  fi
+  echo "X11 probe: xset q succeeded."
+else
+  echo "Neither xdpyinfo nor xset is installed on the eye-tracking computer." >&2
+  echo "Install one X11 probe utility before running this check." >&2
+  exit 1
+fi
 
 if [[ "$try_xclock" == "1" ]]; then
   if command -v xclock >/dev/null 2>&1; then

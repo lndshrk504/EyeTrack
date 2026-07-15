@@ -20,7 +20,10 @@ the account on the eye-tracking computer, for example `wbs`.
 
 ## Recommended Operating Pattern
 
-Use SSH/X11 only for camera alignment and occasional drift checks. Do not depend on a forwarded OpenCV window for the full session unless you accept that a GUI disconnect can stop the remote process.
+The current production workflow intentionally keeps the X11-forwarded OpenCV
+overlay open at 5 display FPS. This makes live alignment and runtime monitoring
+available on the behavior computer, with the accepted tradeoff that closing the
+window or losing the X11 connection can stop the remote streamer.
 
 Recommended workflow:
 
@@ -29,11 +32,16 @@ Recommended workflow:
 3. Optionally open a forwarded FLIR training-frame capture window and save raw
    images for future retraining.
 4. Close those preview windows after setup or image collection.
-5. Start the production eye stream headless over SSH with `--no-display`.
+5. Start the production eye stream with the X11-forwarded overlay at 5 display
+   FPS.
 6. Check process status over SSH when needed.
 7. Stop the production eye stream over SSH at the end of the session.
 
-That pattern is safer than leaving the main inference preview window open for hours.
+For normal two-computer operation, the root
+`run_two_computer_eye_tracking.sh` supervisor performs steps 5 through 7,
+starts the local receiver, and supervises both EyeTrack services until the
+operator presses `Ctrl+C`. MATLAB and BehaviorBox are started and stopped
+independently.
 
 ## Real Execution Path
 
@@ -71,13 +79,20 @@ The helper scripts live here:
 - [`ssh_x11/start_eye_stream_over_ssh.sh`](../ssh_x11/start_eye_stream_over_ssh.sh)
 - [`ssh_x11/eye_stream_status_over_ssh.sh`](../ssh_x11/eye_stream_status_over_ssh.sh)
 - [`ssh_x11/stop_eye_stream_over_ssh.sh`](../ssh_x11/stop_eye_stream_over_ssh.sh)
+- [`run_two_computer_eye_tracking.sh`](../run_two_computer_eye_tracking.sh)
 
 ## One-Time Setup on the Eye-Tracking Computer
 
-Run this on the eye-tracking computer:
+Review the intended changes on the eye-tracking computer first:
 
 ```bash
 cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
+./setup_eye_host_ssh_x11.sh --behavior-ip 10.55.0.2 --dry-run
+```
+
+Then apply them:
+
+```bash
 sudo ./setup_eye_host_ssh_x11.sh --behavior-ip 10.55.0.2
 ```
 
@@ -86,8 +101,13 @@ What the setup script does:
 - checks for the standard Pop!_OS `/etc/ssh/sshd_config.d` include path,
 - writes an SSH drop-in enabling `X11Forwarding yes` and `X11UseLocalhost yes`,
 - validates the SSH daemon configuration,
+- verifies the effective X11 settings before reporting success,
 - enables and restarts the `ssh` service,
 - adds `ufw` rules for SSH port `22` and eye-stream port `5555` if `ufw` is active.
+
+The optional `--conf-file` value must name a regular `.conf` file directly
+under `/etc/ssh/sshd_config.d`. Paths outside that included drop-in directory,
+symlinks, and parent traversal are rejected before any write.
 
 If `openssh-server` or `xauth` is missing, rerun with:
 
@@ -100,6 +120,10 @@ sudo ./setup_eye_host_ssh_x11.sh --behavior-ip 10.55.0.2 --install-missing
 Run the next commands from a normal graphical desktop login on the behavior computer, not from a text console.
 
 On Pop!_OS, X11 forwarding usually works through Xwayland as long as a normal desktop session is active and `DISPLAY` is set.
+
+These wrappers use trusted forwarding (`ssh -Y`). A trusted remote X client can
+interact with the behavior computer's X session, so use this workflow only with
+the dedicated, trusted eye-tracking host on the private link.
 
 Check locally:
 
@@ -115,6 +139,10 @@ Then test forwarding:
 cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
 ./test_x11_forwarding_over_ssh.sh --host <user>@10.55.0.1
 ```
+
+A pass requires the remote host to open the forwarded display with `xdpyinfo`
+or `xset`. The test fails if neither noninteractive probe is installed; it does
+not treat a nonempty `DISPLAY` and an `xauth` executable as sufficient.
 
 If `xclock` is installed on the eye-tracking computer and you want a visual test:
 
@@ -178,9 +206,21 @@ Press `q` or `Esc`, or close the window, when image collection is done.
 The saved PNGs are raw camera arrays. Preview scaling, overlay text, and
 `--auto-contrast` are not baked into the saved training images.
 
-## 3. Start the Production Eye Stream Headless
+## 3. Start the Production Eye Stream With Its Forwarded Overlay
 
-After alignment looks good, start the production streamer without a GUI:
+The recommended command from the behavior computer is the root supervisor:
+
+```bash
+cd ~/Desktop/BehaviorBox/EyeTrack
+./run_two_computer_eye_tracking.sh
+```
+
+It checks X11, starts the overlay at 5 display FPS, starts the receiver, and
+waits for samples. It does not start MATLAB. After warm-up, start the BehaviorBox
+session in the independently running MATLAB instance; after the session saves,
+press `Ctrl+C` in the supervisor terminal to stop both EyeTrack services.
+
+To start only the remote streamer wrapper manually:
 
 ```bash
 cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
@@ -196,10 +236,13 @@ cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
   --frame-rate 60 \
   --exposure-us 6000 \
   --gain-auto continuous \
-  --display-fps 2
+  --display \
+  --display-fps 5
 ```
 
-If you do not explicitly pass `--display`, the wrapper adds `--no-display` automatically.
+If neither display flag is supplied, the wrapper now adds
+`--display --display-fps 5`. An explicit `--no-display` remains available for
+an intentional headless troubleshooting run.
 
 Run this from a dedicated terminal tab or pane. Stop it with `Ctrl+C` when you are finished, or use the stop script below from another terminal.
 
@@ -209,14 +252,23 @@ From the behavior computer:
 
 ```bash
 cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
-./eye_stream_status_over_ssh.sh --host <user>@10.55.0.1
+./eye_stream_status_over_ssh.sh \
+  --host <user>@10.55.0.1 \
+  --address tcp://10.55.0.1:5555 \
+  --csv-dir /tmp/EyeTrack
 ```
 
 This reports:
 
 - matching `run_eye_stream_production.py` and `dlc_eye_streamer.py` processes,
-- whether port `5555` is listening,
-- the most recent CSV files under `/tmp/EyeTrack`.
+- whether a listener serves the requested endpoint host and port,
+- the most recent CSV files under the requested output directory.
+
+The command exits nonzero unless a matching EyeTrack process owns the requested
+listener. A wildcard bind can serve any requested local interface, but a
+localhost-only bind does not satisfy a direct-link address such as
+`10.55.0.1`. `--port PORT` can override the port parsed from `--address` when
+needed.
 
 ## 5. Stop the Remote Stream from Another Terminal
 
@@ -224,14 +276,19 @@ From the behavior computer:
 
 ```bash
 cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
-./stop_eye_stream_over_ssh.sh --host <user>@10.55.0.1
+./stop_eye_stream_over_ssh.sh \
+  --host <user>@10.55.0.1 \
+  --timeout-s 10
 ```
 
-This sends `SIGINT` first so the streamer follows its normal shutdown path.
+This sends `SIGINT`, polls until the matching processes exit, and returns
+nonzero if they are still present after the timeout. The default poll interval
+is `0.25` seconds and can be changed with `--poll-interval-s`.
 
-## Optional: Forward the Production Overlay Window Anyway
+## Optional: Run Headless For Troubleshooting
 
-If you want to see the production overlay over SSH, you can do it, but it is more fragile than the preview-only pattern.
+The forwarded overlay is the default. To run the low-level wrapper without it,
+pass `--no-display` explicitly:
 
 From the behavior computer:
 
@@ -246,18 +303,11 @@ From the behavior computer:
   --frame-rate 60 \
   --exposure-us 6000 \
   --gain-auto continuous \
-  --display \
-  --display-scale 0.5 \
-  --display-fps 1
+  --no-display
 ```
 
-Use a very low `--display-fps` if your goal is only to confirm that the eye remains in frame.
-
-Risk:
-
-- if the forwarded OpenCV window closes,
-- or if the X11 SSH connection drops,
-- the production streamer may stop.
+This removes the X11 window dependency but also removes the requested live
+production overlay.
 
 ## Troubleshooting
 
@@ -301,19 +351,26 @@ That is expected over SSH/X11. Lower the amount of work:
 - use `--scale 0.5` or smaller for `capture_flir_training_frames.py`,
 - keep the preview only long enough to align the mouse,
 - use the training capture preview only long enough to collect images,
-- run the production streamer with `--no-display` after setup.
+- keep the production overlay at its default `--display-fps 5`, or use the
+  explicit `--no-display` troubleshooting override if necessary.
 
 ### The Streamer Stops When the Preview Window Closes
 
-That behavior is expected for the production overlay window. Use the preview-only `FLIRCam.py` path for alignment, then run `run_eye_stream_production.py` headless.
+That behavior is expected for the production overlay window. Restart through
+`run_two_computer_eye_tracking.sh`; it will recheck X11 and start a new,
+supervisor-owned streamer and receiver. Use explicit `--no-display` only when
+you intentionally accept losing the production overlay.
 
 ## Summary
 
-For your room setup, the least fragile arrangement is:
+For your room setup, the requested operating arrangement is:
 
 1. no dedicated display on the eye-tracking computer,
 2. one-time SSH/X11 setup on the eye-tracking computer,
 3. forwarded `FLIRCam.py` preview from the behavior computer only when aligning,
 4. forwarded `capture_flir_training_frames.py` preview only when collecting training images,
-5. headless production inference over SSH for the session itself,
-6. status and stop commands over SSH from the behavior computer.
+5. MATLAB/BehaviorBox started independently while the mouse warms up,
+6. the X11-forwarded production overlay and receiver started when eye tracking
+   should begin, and
+7. operator-controlled receiver and streamer shutdown with `Ctrl+C` after the
+   BehaviorBox session finishes saving.

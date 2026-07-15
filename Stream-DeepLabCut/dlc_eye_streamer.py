@@ -65,6 +65,7 @@ class DisplayPacket:
 
 
 SCHEMA_VERSION = 1
+STREAM_METADATA_VERSION = 1
 SOURCE_NAME = "dlc_eye_streamer"
 
 
@@ -195,6 +196,23 @@ def get_float_node(node_map: Any, name: str) -> Optional[float]:
     return float(node.GetValue())
 
 
+def get_int_node(node_map: Any, name: str) -> Optional[int]:
+    node = PySpin.CIntegerPtr(node_map.GetNode(name))
+    if not PySpin.IsAvailable(node) or not PySpin.IsReadable(node):
+        return None
+    return int(node.GetValue())
+
+
+def get_enum_node(node_map: Any, name: str) -> Optional[str]:
+    node = PySpin.CEnumerationPtr(node_map.GetNode(name))
+    if not PySpin.IsAvailable(node) or not PySpin.IsReadable(node):
+        return None
+    entry = node.GetCurrentEntry()
+    if not PySpin.IsAvailable(entry) or not PySpin.IsReadable(entry):
+        return None
+    return str(entry.GetSymbolic())
+
+
 def set_int_node(node_map: Any, name: str, value: int) -> Optional[int]:
     node = PySpin.CIntegerPtr(node_map.GetNode(name))
     if not PySpin.IsAvailable(node) or not PySpin.IsWritable(node):
@@ -229,7 +247,7 @@ def configure_sensor_roi(node_map: Any, x: int, y: int, width: int, height: int)
 
 def configure_frame_rate(node_map: Any, frame_rate: Optional[float]) -> dict[str, Any]:
     if frame_rate is None:
-        return {}
+        return {"frame_rate": get_float_node(node_map, "AcquisitionFrameRate")}
 
     info: dict[str, Any] = {}
     if set_enum_node(node_map, "AcquisitionFrameRateAuto", "Off"):
@@ -272,22 +290,37 @@ def configure_camera(cam: Any, args: argparse.Namespace) -> dict[str, Any]:
     if args.sensor_roi is not None:
         x, y, w, h = args.sensor_roi
         ax, ay, aw, ah = configure_sensor_roi(node_map, x, y, w, h)
-        info["sensor_roi_applied"] = (ax, ay, aw, ah)
+    else:
+        ax = get_int_node(node_map, "OffsetX")
+        ay = get_int_node(node_map, "OffsetY")
+        aw = get_int_node(node_map, "Width")
+        ah = get_int_node(node_map, "Height")
+    info["sensor_roi_applied"] = (ax, ay, aw, ah)
 
     if args.pixel_format:
         set_enum_node(node_map, "PixelFormat", args.pixel_format)
+    info["pixel_format"] = get_enum_node(node_map, "PixelFormat")
 
     info.update(configure_frame_rate(node_map, args.frame_rate))
 
+    configured_exposure = None
     if args.exposure_us is not None:
-        info["exposure_us"] = set_float_node(node_map, "ExposureTime", args.exposure_us)
+        configured_exposure = set_float_node(node_map, "ExposureTime", args.exposure_us)
+    exposure_readback = get_float_node(node_map, "ExposureTime")
+    info["exposure_us"] = exposure_readback if exposure_readback is not None else configured_exposure
 
     gain_auto_entry = gain_auto_entry_name(args.gain_auto)
-    if set_enum_node(node_map, "GainAuto", gain_auto_entry):
-        info["gain_auto"] = gain_auto_entry
+    gain_auto_configured = set_enum_node(node_map, "GainAuto", gain_auto_entry)
+    gain_auto_readback = get_enum_node(node_map, "GainAuto")
+    info["gain_auto"] = gain_auto_readback if gain_auto_readback is not None else (
+        gain_auto_entry if gain_auto_configured else None
+    )
 
+    configured_gain = None
     if args.gain_auto == "off" and args.gain_db is not None:
-        info["gain_db"] = set_float_node(node_map, "Gain", args.gain_db)
+        configured_gain = set_float_node(node_map, "Gain", args.gain_db)
+    gain_readback = get_float_node(node_map, "Gain")
+    info["gain_db"] = gain_readback if gain_readback is not None else configured_gain
 
     # Keep the transport queue shallow; for closed-loop work, newest frame wins.
     set_enum_node(stream_node_map, "StreamBufferCountMode", "Manual")
@@ -426,21 +459,16 @@ def crop_metadata(args: argparse.Namespace) -> dict[str, Optional[int]]:
     }
 
 
-def sensor_roi_metadata(camera_info: dict[str, Any]) -> dict[str, Optional[int]]:
-    roi = camera_info.get("sensor_roi_applied")
-    if roi is None:
-        return {
-            "sensor_roi_x": None,
-            "sensor_roi_y": None,
-            "sensor_roi_width": None,
-            "sensor_roi_height": None,
-        }
+def roi_metadata(prefix: str, roi: Any) -> dict[str, Optional[int]]:
+    field_names = ("x", "y", "width", "height")
+    if roi is None or len(roi) != len(field_names):
+        return {f"{prefix}_{field_name}": None for field_name in field_names}
     x, y, w, h = roi
     return {
-        "sensor_roi_x": None if x is None else int(x),
-        "sensor_roi_y": None if y is None else int(y),
-        "sensor_roi_width": None if w is None else int(w),
-        "sensor_roi_height": None if h is None else int(h),
+        f"{prefix}_x": None if x is None else int(x),
+        f"{prefix}_y": None if y is None else int(y),
+        f"{prefix}_width": None if w is None else int(w),
+        f"{prefix}_height": None if h is None else int(h),
     }
 
 
@@ -461,26 +489,66 @@ def metadata_path_for_args(args: argparse.Namespace) -> Optional[Path]:
     return metadata_path_for_csv(csv_path)
 
 
-def sample_metadata(args: argparse.Namespace, point_names: list[str]) -> dict[str, Any]:
+def build_static_stream_metadata(args: argparse.Namespace, point_names: list[str]) -> dict[str, Any]:
     camera_info = getattr(args, "camera_info", {}) or {}
     csv_path = csv_path_for_args(args)
     metadata_path = metadata_path_for_args(args)
+    requested_sensor_roi = roi_metadata("sensor_roi_requested", args.sensor_roi)
+    applied_sensor_roi = roi_metadata("sensor_roi_applied", camera_info.get("sensor_roi_applied"))
     return {
+        "stream_metadata_version": STREAM_METADATA_VERSION,
         "schema_version": SCHEMA_VERSION,
         "source": SOURCE_NAME,
         "address": args.address,
         "csv_path": None if csv_path is None else str(csv_path),
         "metadata_path": None if metadata_path is None else str(metadata_path),
+        "model_path": str(args.model_path),
         "model_preset": args.model_preset,
         "model_type": args.model_type,
+        "kp_top": args.kp_top,
+        "kp_bottom": args.kp_bottom,
+        "kp_left": args.kp_left,
+        "kp_right": args.kp_right,
+        "kp_center": args.kp_center,
         "point_names": list(point_names),
         "point_count": int(len(point_names)),
         "pcutoff": float(args.pcutoff),
         "pose_coordinate_frame": args.pose_coordinate_frame,
+        "camera_index": int(args.camera_index),
         "camera_serial": camera_info.get("serial"),
         "camera_model": camera_info.get("model"),
-        **sensor_roi_metadata(camera_info),
+        "timeout_ms": int(args.timeout_ms),
+        "buffer_count": int(args.buffer_count),
+        "buffer_count_requested": int(args.buffer_count),
+        "buffer_count_applied": camera_info.get("stream_buffer_count"),
+        "pixel_format": args.pixel_format,
+        "pixel_format_requested": args.pixel_format,
+        "pixel_format_applied": camera_info.get("pixel_format"),
+        "exposure_us_requested": None if args.exposure_us is None else float(args.exposure_us),
+        "exposure_us_applied": camera_info.get("exposure_us"),
+        "gain_db_requested": None if args.gain_db is None else float(args.gain_db),
+        "gain_db_applied": camera_info.get("gain_db"),
+        "gain_auto_requested": args.gain_auto,
+        "gain_auto_applied": camera_info.get("gain_auto"),
+        "frame_rate_requested": None if args.frame_rate is None else float(args.frame_rate),
+        "frame_rate_applied": camera_info.get("frame_rate"),
+        "camera_info": dict(camera_info),
+        **requested_sensor_roi,
+        **applied_sensor_roi,
+        "sensor_roi_x": applied_sensor_roi["sensor_roi_applied_x"],
+        "sensor_roi_y": applied_sensor_roi["sensor_roi_applied_y"],
+        "sensor_roi_width": applied_sensor_roi["sensor_roi_applied_width"],
+        "sensor_roi_height": applied_sensor_roi["sensor_roi_applied_height"],
         **crop_metadata(args),
+        "pass_gray_to_dlc": bool(args.pass_gray_to_dlc),
+        "display_enabled": bool(args.display),
+        "display_scale": float(args.display_scale),
+        "display_fps": float(args.display_fps),
+        "window_name": args.window_name,
+        "dynamic_crop": bool(args.dynamic_crop),
+        "dynamic_margin": int(args.dynamic_margin),
+        "pub_hwm": int(args.pub_hwm),
+        "metadata_interval_s": float(args.metadata_interval_s),
     }
 
 
@@ -489,41 +557,13 @@ def make_metadata_message(args: argparse.Namespace, point_names: list[str]) -> d
         "message_type": "metadata",
         "created_time_unix_s": time.time(),
         "created_time_unix_ns": time.time_ns(),
-        "display_enabled": bool(args.display),
-        "display_scale": float(args.display_scale),
-        "display_fps": float(args.display_fps),
-        "pub_hwm": int(args.pub_hwm),
-        "metadata_interval_s": float(args.metadata_interval_s),
-        "dynamic_crop": bool(args.dynamic_crop),
-        "dynamic_margin": int(args.dynamic_margin),
-        **sample_metadata(args, point_names),
+        **build_static_stream_metadata(args, point_names),
     }
 
 
 def make_sidecar_metadata(args: argparse.Namespace, point_names: list[str], csv_fieldnames: list[str]) -> dict[str, Any]:
-    camera_info = getattr(args, "camera_info", {}) or {}
     metadata = make_metadata_message(args, point_names)
-    metadata.update(
-        {
-            "csv_fieldnames": list(csv_fieldnames),
-            "model_path": str(args.model_path),
-            "camera_index": int(args.camera_index),
-            "timeout_ms": int(args.timeout_ms),
-            "buffer_count": int(args.buffer_count),
-            "pixel_format": args.pixel_format,
-            "exposure_us_requested": None if args.exposure_us is None else float(args.exposure_us),
-            "gain_db_requested": None if args.gain_db is None else float(args.gain_db),
-            "gain_auto_requested": args.gain_auto,
-            "frame_rate_requested": None if args.frame_rate is None else float(args.frame_rate),
-            "camera_info": camera_info,
-            "pass_gray_to_dlc": bool(args.pass_gray_to_dlc),
-            "kp_top": args.kp_top,
-            "kp_bottom": args.kp_bottom,
-            "kp_left": args.kp_left,
-            "kp_right": args.kp_right,
-            "kp_center": args.kp_center,
-        }
-    )
+    metadata["csv_fieldnames"] = list(csv_fieldnames)
     return metadata
 
 
