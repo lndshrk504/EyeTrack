@@ -6,7 +6,11 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=ssh_x11_common.sh
 source "$SCRIPT_DIR/ssh_x11_common.sh"
 
-HOST=""
+STREAM_DIR="$SCRIPT_DIR/../Stream-DeepLabCut"
+# shellcheck source=../Stream-DeepLabCut/behavior_eye_tracking_env.sh
+source "$STREAM_DIR/behavior_eye_tracking_env.sh"
+
+HOST="${EYETRACK_EYE_HOST:-wbs@10.55.0.1}"
 REMOTE_REPO='~/Desktop/BehaviorBox/EyeTrack'
 CONDA_SH='~/miniforge3/etc/profile.d/conda.sh'
 CONDA_ENV='dlclivegui'
@@ -18,7 +22,8 @@ Usage:
   ./open_alignment_preview_over_ssh.sh --host USER@HOST [options] -- [FLIRCam.py args...]
 
 Options:
-  --host USER@HOST      Required SSH target for the eye-tracking computer
+  --host USER@HOST      SSH target for the eye-tracking computer.
+                      Default: wbs@10.55.0.1 (from EYETRACK_EYE_HOST or fallback)
   --remote-repo PATH    Remote EyeTrack repo root. Default: ~/Desktop/BehaviorBox/EyeTrack
   --conda-sh PATH       Remote conda.sh path. Default: ~/miniforge3/etc/profile.d/conda.sh
   --conda-env NAME      Remote conda environment. Default: dlclivegui
@@ -74,16 +79,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$HOST" ]]; then
-  echo "--host is required." >&2
-  usage >&2
-  exit 1
-fi
-
 require_display
 
 if [[ ${#EXTRA_ARGS[@]} -eq 0 ]]; then
-  EXTRA_ARGS=(--auto-contrast --scale 0.5)
+  EXTRA_ARGS=(--auto-contrast --scale 2)
+else
+  EXTRA_ARGS=(--auto-contrast --scale 2 "${EXTRA_ARGS[@]}")
 fi
 
 echo "Opening forwarded FLIR alignment preview from ${HOST}..."
