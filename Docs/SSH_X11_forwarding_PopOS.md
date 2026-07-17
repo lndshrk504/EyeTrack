@@ -160,8 +160,22 @@ cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
   --host <user>@10.55.0.1 \
   -- \
   --camera-index 0 \
+  --gain-auto continuous
+```
+
+The script prepends the following defaults to `FLIRCam.py` arguments when none
+are provided explicitly: `--auto-contrast --scale 2`.
+
+If you want to override the defaults, pass your own values after `--` (user args
+are appended after those defaults):
+
+```bash
+cd ~/Desktop/BehaviorBox/EyeTrack/ssh_x11
+./open_alignment_preview_over_ssh.sh \
+  --host <user>@10.55.0.1 \
+  -- \
+  --camera-index 0 \
   --gain-auto continuous \
-  --auto-contrast \
   --scale 0.5
 ```
 
@@ -347,7 +361,8 @@ The remote `DISPLAY` value should not be empty during an X11-forwarded session.
 
 That is expected over SSH/X11. Lower the amount of work:
 
-- use `--scale 0.5` or smaller for `FLIRCam.py`,
+- default `FLIRCam.py` preview uses `--scale 2` through
+  `open_alignment_preview_over_ssh.sh`; use `--scale 0.5` or smaller when needed,
 - use `--scale 0.5` or smaller for `capture_flir_training_frames.py`,
 - keep the preview only long enough to align the mouse,
 - use the training capture preview only long enough to collect images,
